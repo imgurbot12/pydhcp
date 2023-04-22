@@ -8,7 +8,7 @@ from typing_extensions import Self
 from pystructs import *
 
 from .enum import OptionCode, MessageType
-from ..enum import Arch
+from ..enum import Arch, StatusCode
 from ..base import DHCPOption, DHCPOptionList, Timedelta
 
 #** Variables **#
@@ -22,6 +22,7 @@ __all__ = [
     'OptRouter',
     'OptDNS',
     'OptRequestedAddr',
+    'OptStatusCode',
     'OptIPLeaseTime',
     'OptMessageType',
     'OptParamRequestList',
@@ -116,6 +117,12 @@ class OptDNS(_Ipv4Option):
 
 class OptRequestedAddr(_Ipv4Option):
     opcode = OptionCode.RequestedIPAddress
+
+@struct
+class OptStatusCode(Option):
+    opcode = OptionCode.StatusCode
+    value:   Int[8, StatusCode, 'StatusCode']
+    message: GreedyBytes
 
 @struct
 class OptIPLeaseTime(Option):

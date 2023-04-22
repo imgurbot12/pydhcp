@@ -66,11 +66,11 @@ class DHCPOptionList:
     def get(self, key: IntEnum, default: Any = None):
         return self.data.get(key, default)
 
-    def append(self, option: DHCPOption):
+    def append(self, option):
         if option.opcode in self.data:
             raise ValueError(f'Option: {option.opcode!r} already present')
         self.data[option.opcode] = option
 
-    def extend(self, options: List[DHCPOption]):
+    def extend(self, options: List):
         for opt in options:
             self.append(opt)
