@@ -58,6 +58,9 @@ class DHCPOptionList:
 
     def __getitem__(self, op: IntEnum):
         return self.data[op]
+
+    def __setitem__(self, op: IntEnum, value: Any):
+        self.data[op] = value
  
     def __contains__(self, key: Union[IntEnum, DHCPOption]) -> bool:
         key = key.opcode if isinstance(key, DHCPOption) else key
@@ -65,6 +68,9 @@ class DHCPOptionList:
 
     def get(self, key: IntEnum, default: Any = None):
         return self.data.get(key, default)
+
+    def set(self, key: IntEnum, value: Any):
+        self.data[key] = value
 
     def append(self, option):
         if option.opcode in self.data:

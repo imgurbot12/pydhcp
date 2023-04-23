@@ -3,7 +3,6 @@ DHCPv4 Option Implementations
 """
 from dataclasses import dataclass
 from typing import ClassVar
-from typing_extensions import Self
 
 from pystructs import *
 
