@@ -41,7 +41,7 @@ class Cache(Backend):
             return
         with self.mutex:
             record = self.cache[key]
-            if record.expiration and record.expiration <= datetime.now(): 
+            if record.expiration and record.expiration <= datetime.now():
                 del self.cache[key]
                 return
             return record.assign

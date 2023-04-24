@@ -19,6 +19,11 @@ from ...exceptions import DhcpError, NotAllowed, MalformedQuery
 #** Variables **#
 __all__ = ['Session', 'SimpleSession']
 
+#: broadcast request for responding to messages
+BROADCAST = '255.255.255.255'
+
+#** Functions **#
+
 def mac_address(hwaddr: bytes) -> str:
     """translate hardware address to mac"""
     return ':'.join(f'{c:02x}' for c in hwaddr)
@@ -114,7 +119,7 @@ class Session(BaseSession, ABC):
             else:
                 data = response.encode()
                 self.logger.debug(f'{self.addr_str} | sent {len(data)} bytes')
-                self.writer.write(data, addr=('255.255.255.255', self.addr.port))
+                self.writer.write(data, addr=(BROADCAST, self.addr.port))
 
     def connection_lost(self, err: Optional[Exception]):
         """debug log connection lost"""
@@ -128,9 +133,10 @@ class SimpleSession(Session):
     def process_discover(self, req: Message) -> Optional[Message]:
         """process discover according to backend"""
         # retrieve and log assignment
-        mac            = mac_address(req.client_hw)
-        assign, source = self.backend.get_assignment(req.client_hw)
-        self.logger.info(f'{self.addr_str} | DISCOVER {mac} {source} {assign}')
+        mac    = req.client_hw.hex()
+        answer = self.backend.get_assignment(req.client_hw)
+        assign = answer.assign
+        self.logger.info(f'{self.addr_str} | DISCOVER {mac} {answer}')
         # offer assignment on discover 
         res = self.default_response(req)
         res.your_addr = assign.your_addr
@@ -139,16 +145,17 @@ class SimpleSession(Session):
             OptDNS(assign.dns),
             OptRouter(assign.gateway),
             OptSubnetMask(assign.netmask),
-            OptIPLeaseTime(assign.lease),
+            OptIPLeaseTime(assign.lease_seconds),
         ])
         return res
 
     def process_request(self, req: Message) -> Optional[Message]:
         """process request according to backend"""
         # retrieve and log assignment
-        mac            = mac_address(req.client_hw)
-        assign, source = self.backend.get_assignment(req.client_hw)
-        self.logger.info(f'{self.addr_str} | REQUEST {mac} {source} {assign}')
+        mac    = req.client_hw.hex()
+        answer = self.backend.get_assignment(req.client_hw)
+        assign = answer.assign
+        self.logger.info(f'{self.addr_str} | REQUEST {mac} {answer}')
         # build standard response
         res = self.default_response(req)
         res.your_addr = assign.your_addr
@@ -157,7 +164,7 @@ class SimpleSession(Session):
             OptDNS(assign.dns),
             OptRouter(assign.gateway),
             OptSubnetMask(assign.netmask),
-            OptIPLeaseTime(assign.lease),
+            OptIPLeaseTime(assign.lease_seconds),
         ])
         # check if request conflicts with server assignment
         req_addr = req.requested_address()
@@ -171,8 +178,9 @@ class SimpleSession(Session):
 
     def process_decline(self, req: Message) -> Optional[Message]:
         """process decline message according to backend"""
-        mac = mac_address(req.client_hw)
-        self.logger.info(f'{self.addr_str} | DECLINE {mac}')
+        mac    = mac_address(req.client_hw)
+        assign = self.backend.get_assignment(req.client_hw).assign
+        self.logger.info(f'{self.addr_str} | DECLINE {mac} {assign.client}')
         self.backend.del_assignment(req.client_hw)
         res = self.default_response(req)
         res.options.append(OptMessageType(MessageType.Nak))
@@ -180,8 +188,9 @@ class SimpleSession(Session):
 
     def process_release(self, req: Message) -> Optional[Message]:
         """process release message according to backend"""
-        mac = mac_address(req.client_hw)
-        self.logger.info(f'{self.addr_str} | RELEASE {mac}')
+        mac    = mac_address(req.client_hw)
+        assign = self.backend.get_assignment(req.client_hw).assign
+        self.logger.info(f'{self.addr_str} | RELEASE {mac} {assign.client}')
         self.backend.del_assignment(req.client_hw)
         res = self.default_response(req)
         res.options.append(OptMessageType(MessageType.Ack))

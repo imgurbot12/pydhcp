@@ -185,4 +185,5 @@ class OptionCode(IntEnum):
     VirtualSubnetAllocation = 221
     # Options 222-223 returned in RFC 3679
     # Options 224-254 are reserved for private use
-    End = 255
+    ProxyAutoDiscover = 252
+    End               = 255

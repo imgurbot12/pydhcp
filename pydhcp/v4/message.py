@@ -149,7 +149,7 @@ class Message:
         ctx     = Context()
         header  = Header.decode(ctx, raw)
         options = OptionList()
-        while raw[ctx.index] != 0:
+        while raw[ctx.index] not in (0, OptionCode.End):
             option = read_option(ctx, raw)
             options.append(option)
         return cls(
