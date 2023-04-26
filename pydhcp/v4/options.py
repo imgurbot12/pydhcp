@@ -17,6 +17,7 @@ __all__ = [
     'Option',
     'OptionList',
     'OptEnd',
+    'OptServerId',
     'OptSubnetMask',
     'OptRouter',
     'OptDNS',
@@ -60,7 +61,7 @@ def read_option(ctx: Context, raw: bytes) -> 'Option':
         oclass.opcode = opt.code
     return option
 
-def write_option(ctx: Context, option: 'Option') -> bytes:
+def write_option(ctx: Context, option) -> bytes:
     """
     write and serialize option-class into raw-bytes
     

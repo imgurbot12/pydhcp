@@ -2,6 +2,7 @@
 PyServe Session DHCPv4 Implementation
 """
 from abc import ABC, abstractmethod
+from ipaddress import IPv4Address
 from logging import Logger, getLogger
 from dataclasses import dataclass, field
 from typing import Optional
@@ -32,8 +33,9 @@ def mac_address(hwaddr: bytes) -> str:
 
 @dataclass
 class Session(BaseSession, ABC):
-    backend: Backend
-    logger:  Logger = field(default_factory=lambda: getLogger('pydhcp'))
+    backend:   Backend
+    logger:    Logger = field(default_factory=lambda: getLogger('pydhcp'))
+    server_id: Optional[IPv4Address] = None
 
     ## Overrides
 
@@ -74,9 +76,9 @@ class Session(BaseSession, ABC):
 
     def connection_made(self, addr: Address, writer: Writer):
         """handle session initialization on connection-made"""
-        self.addr     = addr
-        self.writer   = writer
-        self.addr_str = '%s:%d' % self.addr
+        self.addr      = addr
+        self.writer    = writer
+        self.addr_str  = '%s:%d' % self.addr
 
     def data_recieved(self, data: bytes):
         """recieve DHCPv4 request and generate response"""
@@ -117,6 +119,10 @@ class Session(BaseSession, ABC):
                 self.logger.error(f'{self.addr_str} | No Response Given.')
                 self.writer.close()
             else:
+                # apply server-identifier when given
+                if self.server_id:
+                    response.options.append(OptServerId(self.server_id))
+                # encode and send response
                 data = response.encode()
                 self.logger.debug(f'{self.addr_str} | sent {len(data)} bytes')
                 self.writer.write(data, addr=(BROADCAST, self.addr.port))

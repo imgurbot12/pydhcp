@@ -9,7 +9,7 @@ from typing_extensions import Self
 from pystructs import *
 
 from .enum import MessageType, OpCode, OptionCode
-from .options import OptionList, read_option
+from .options import OptionList, read_option, write_option
 from ..enum import HwType
 
 #** Variables **#
@@ -122,7 +122,7 @@ class Message:
         data += Header(
             opcode=self.op,
             hw_type=self.hw_type,
-            hw_length=6, #TODO: this might need to be dynamic somehow
+            hw_length=len(self.client_hw),
             hops=self.hops,
             message_id=self.id,
             seconds=self.seconds,
@@ -136,9 +136,9 @@ class Message:
             boot_file=self.boot_file,
         ).encode(ctx)
         for option in self.options:
-            data += option.encode(ctx)
+            data += write_option(ctx, option)
         if not any(opt.opcode == OptionCode.End for opt in self.options):
-            data += b'\x00'
+            data += bytes((OptionCode.End, ))
         return bytes(data)
 
     @classmethod

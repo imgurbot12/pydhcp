@@ -13,6 +13,7 @@ __all__ = [
     'Option',
     'OptionList',
     'OptEnd',
+    'OptServerId',
     'OptSubnetMask',
     'OptRouter',
     'OptDNS',
