@@ -174,8 +174,9 @@ class SimpleSession(Session):
         ])
         # check if request conflicts with server assignment
         req_addr = req.requested_address()
-        conflict = req_addr != assign.your_addr
-        conflict = conflict or req.broadcast_address() == assign.netmask
+        req_cast = req.broadcast_address()
+        conflict = req_addr and req_addr != assign.your_addr
+        conflict = conflict or req_cast and req_cast != assign.netmask
         if conflict:
             self.logger.warning(f'{self.addr_str} | REQUEST NAK {req_addr!r}')
             nak = OptMessageType(MessageType.Nak)

@@ -129,6 +129,8 @@ class OptionCode(IntEnum):
     IEEE10031TZString           = 100
     ReferenceToTZDatabase       = 101
     # Options 102-111 returned in RFC 3679
+    Ipv6OnlyPreferred          = 108 # [RFC8925]
+    OPTION_DHCP4O6_S46_SADDR   = 109 # [RFC8539]
     NetInfoParentServerAddress = 112
     NetInfoParentServerTag     = 113
     URL                        = 114
@@ -161,15 +163,24 @@ class OptionCode(IntEnum):
     OPTIONIPv4AddressANDSF                = 142
     OPTIONIPv6AddressANDSF                = 143
     # Options 144-149 returned in RFC 3679
-    TFTPServerAddress = 150
-    StatusCode        = 151
-    BaseTime          = 152
-    StartTimeOfState  = 153
-    QueryStartTime    = 154
-    QueryEndTime      = 155
-    DHCPState         = 156
-    DataSource        = 157
+    GeoLoc                   = 144 #[RFC6225]
+    FORCERENEW_NONCE_CAPABLE = 145 #[RFC6704]
+    RDNSSSelection           = 146 #[RFC6731]
+    OPTION_V4_DOTS_RI        = 147 #[RFC8973]
+    OPTION_V4_DOTS_ADDRESS   = 148 #[RFC8973]
+    TFTPServerAddress        = 150
+    StatusCode               = 151
+    BaseTime                 = 152
+    StartTimeOfState         = 153
+    QueryStartTime           = 154
+    QueryEndTime             = 155
+    DHCPState                = 156
+    DataSource               = 157
     # Options 158-174 returned in RFC 3679
+    OPTION_V4_PCP_SERVER             = 158 #[RFC7291]
+    OPTION_V4_PORTPARAMS             = 159 #[RFC7618]
+    OPTION_MUD_URL_V4                = 161 #[RFC8520]
+    OPTION_V4_DNR                    = 162 #[RFC-ietf-add-dnr-13] 
     Etherboot                        = 175
     IPTelephone                      = 176
     EtherbootPacketCableAndCableHome = 177
@@ -185,5 +196,7 @@ class OptionCode(IntEnum):
     VirtualSubnetAllocation = 221
     # Options 222-223 returned in RFC 3679
     # Options 224-254 are reserved for private use
-    ProxyAutoDiscover = 252
-    End               = 255
+    MSClasslessStaticRoute = 249
+    MSEncodingLongOption   = 250
+    ProxyAutoDiscover      = 252 #[RFC-draft-ietf-wrec-wpad-01]
+    End                    = 255
