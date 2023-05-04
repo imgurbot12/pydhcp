@@ -20,10 +20,17 @@ from ...exceptions import DhcpError, NotAllowed, NotSupported, UnknownQueryType
 #** Variables **#
 __all__ = ['Session', 'SimpleSession']
 
+#: dhcp response port
+PORT = 68
+
 #: broadcast request for responding to messages
 BROADCAST = '255.255.255.255'
 
 #** Functions **#
+
+def is_broadcast(host: IPv4Address) -> bool:
+    """check if requested host is a broadcast"""
+    return bool(host.packed.strip(b'\x00'))
 
 def mac_address(hwaddr: bytes) -> str:
     """translate hardware address to mac"""
@@ -119,13 +126,16 @@ class Session(BaseSession, ABC):
                 self.logger.error(f'{self.addr_str} | No Response Given.')
                 self.writer.close()
             else:
+                # configure response address
+                host = self.addr.host
+                host = BROADCAST if is_broadcast(host) else host
                 # apply server-identifier when given
                 if self.server_id:
                     response.options.append(OptServerId(self.server_id))
                 # encode and send response
                 data = response.encode()
                 self.logger.debug(f'{self.addr_str} | sent {len(data)} bytes')
-                self.writer.write(data)
+                self.writer.write(data, addr=(host, PORT))
 
     def connection_lost(self, err: Optional[Exception]):
         """debug log connection lost"""
