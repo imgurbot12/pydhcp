@@ -19,11 +19,14 @@ __all__ = [
     'OptEnd',
     'OptServerId',
     'OptSubnetMask',
+    'OptBroadcast',
     'OptRouter',
     'OptDNS',
     'OptRequestedAddr',
     'OptStatusCode',
     'OptIPLeaseTime',
+    'OptRenwalTime',
+    'OptRebindTime',
     'OptMessageType',
     'OptParamRequestList',
     'OptMaxMessageSize',
@@ -109,6 +112,9 @@ class OptServerId(_Ipv4Option):
 class OptSubnetMask(_Ipv4Option):
     opcode = OptionCode.SubnetMask
 
+class OptBroadcast(_Ipv4Option):
+    opcode = OptionCode.BroadcastAddress
+
 class OptRouter(_Ipv4Option):
     opcode = OptionCode.Router
 
@@ -128,6 +134,16 @@ class OptStatusCode(Option):
 class OptIPLeaseTime(Option):
     opcode = OptionCode.IPAddressLeaseTime
     value: Int[32, Timedelta['seconds'], 'Lease']
+
+@struct
+class OptRenwalTime(Option):
+    opcode = OptionCode.RenewTimeValue
+    value: Int[32, Timedelta['seconds'], 'RenewTime']
+
+@struct
+class OptRebindTime(Option):
+    opcode = OptionCode.RenewTimeValue
+    value: Int[32, Timedelta['seconds'], 'RebindTime']
 
 @struct
 class OptMessageType(Option):

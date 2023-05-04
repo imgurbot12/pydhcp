@@ -12,8 +12,10 @@ __all__ = [
     'DhcpError',
     'NoAddrsAvailable',
     'NotAllowed',
+    'NotSupported',
     'MalformedQuery',
     'Terminated',
+    'UnknownQueryType',
 ]
 
 _EXCEPTIONS: Dict[StatusCode, Type[Exception]] = {}
@@ -54,8 +56,14 @@ class NoAddrsAvailable(DhcpError):
 class NotAllowed(DhcpError):
     code = StatusCode.NotAllowed
 
+class NotSupported(DhcpError):
+    code = StatusCode.NotSupported
+
 class MalformedQuery(DhcpError):
     code = StatusCode.MalformedQuery
+
+class UnknownQueryType(DhcpError):
+    code = StatusCode.UnknownQueryType
 
 class Terminated(DhcpError):
     code = StatusCode.QueryTerminated

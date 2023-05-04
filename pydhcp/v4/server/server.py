@@ -15,7 +15,7 @@ from ..enum import MessageType, OpCode
 from ..message import Message
 from ..options import *
 from ...enum import StatusCode
-from ...exceptions import DhcpError, NotAllowed, MalformedQuery
+from ...exceptions import DhcpError, NotAllowed, NotSupported, UnknownQueryType
 
 #** Variables **#
 __all__ = ['Session', 'SimpleSession']
@@ -125,7 +125,7 @@ class Session(BaseSession, ABC):
                 # encode and send response
                 data = response.encode()
                 self.logger.debug(f'{self.addr_str} | sent {len(data)} bytes')
-                self.writer.write(data, addr=(BROADCAST, self.addr.port))
+                self.writer.write(data)
 
     def connection_lost(self, err: Optional[Exception]):
         """debug log connection lost"""
@@ -146,6 +146,8 @@ class SimpleSession(Session):
         # offer assignment on discover 
         res = self.default_response(req)
         res.your_addr = assign.your_addr
+        if self.server_id is not None:
+            res.server_addr = self.server_id
         res.options.extend([
             OptMessageType(MessageType.Offer),
             OptDNS(assign.dns),
@@ -162,15 +164,24 @@ class SimpleSession(Session):
         answer = self.backend.get_assignment(req.client_hw)
         assign = answer.assign
         self.logger.info(f'{self.addr_str} | REQUEST {mac} {answer}')
+        # build list of response options based on request
+        reqops  = set(req.requested_options())
+        options = [opt for opt in (
+            OptDNS(assign.dns),
+            OptRouter(assign.gateway),
+            OptSubnetMask(assign.netmask),
+            OptBroadcast(assign.broadcast),
+        ) if reqops and opt.opcode in reqops]
+        # raise error if cannot satisfy and options
+        if not options:
+            raise NotSupported('No Requested Options Supported')
         # build standard response
         res = self.default_response(req)
         res.your_addr = assign.your_addr
         res.options.extend([
             OptMessageType(MessageType.Ack),
-            OptDNS(assign.dns),
-            OptRouter(assign.gateway),
-            OptSubnetMask(assign.netmask),
             OptIPLeaseTime(assign.lease_seconds),
+            *options,
         ])
         # check if request conflicts with server assignment
         req_addr = req.requested_address()
@@ -203,9 +214,9 @@ class SimpleSession(Session):
         res.options.append(OptMessageType(MessageType.Ack))
         return res
 
-    def process_inform(self, req: Message) -> Optional[Message]:
+    def process_inform(self, _: Message) -> Optional[Message]:
         """process inform message according to backend"""
         raise NotAllowed('Inform not Allowed')
  
-    def process_unknown(self, req: Message) -> Optional[Message]:
-        raise MalformedQuery('Unsupported MessageType')
+    def process_unknown(self, _: Message) -> Optional[Message]:
+        raise UnknownQueryType('Unsupported MessageType')

@@ -54,14 +54,24 @@ class Assignment(NamedTuple):
 
     @property
     def your_addr(self) -> IPv4Address:
+        """retrieve client-ip from given client ip-config"""
         return self.client.ip
 
     @property
     def netmask(self) -> IPv4Address:
+        """retrieve netmask for the given client ip-config"""
         return self.client.netmask
 
     @property
+    def broadcast(self) -> IPv4Address:
+        """guess broadcast address based on ip/netmask"""
+        ipiter    = zip(self.your_addr.packed, self.netmask.packed)
+        broadcast = bytes(o if b == 255 else 255 for o,b in ipiter)
+        return IPv4Address(broadcast)
+
+    @property
     def lease_seconds(self) -> int:
+        """retrieve lease in seconds as an integer"""
         return int(self.lease.total_seconds())
 
 class Answer(NamedTuple):
