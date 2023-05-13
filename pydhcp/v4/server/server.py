@@ -91,7 +91,7 @@ class Session(BaseSession, ABC):
         hosts = (
             request.gateway_addr,
             request.client_addr,
-            self.addr.host,
+            IPv4Address(self.addr.host),
             BROADCAST,
         )
         # apply server-identifier when given
@@ -101,13 +101,15 @@ class Session(BaseSession, ABC):
         response.options.sort()
         # encode and send response
         data = response.encode()
+        sent = set()
         for ipv4 in hosts:
-            if is_zero(ipv4):
+            if is_zero(ipv4) or ipv4 in sent:
                 continue
             host = str(ipv4)
             info = f'{self.addr_str} | sent {len(data)} to {host}:{PORT}'
             self.logger.debug(info)
             self.writer.write(data, addr=(host, PORT))
+            sent.add(ipv4)
 
     ## Session Impl
 
