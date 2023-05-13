@@ -160,7 +160,9 @@ class Session(BaseSession, ABC):
 
     def connection_lost(self, err: Optional[Exception]):
         """debug log connection lost"""
-        self.logger.debug(f'{self.addr_str} | connection-lost err={err}')
+        msg = f'{self.addr_str} | connection-lost err={err}'
+        log = self.logger.warning if err is not None else self.logger.debug
+        log(msg)
 
 @dataclass
 class SimpleSession(Session):
