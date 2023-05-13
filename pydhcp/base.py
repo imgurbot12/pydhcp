@@ -4,6 +4,7 @@ BaseClass ABC Protocol Implementations for DHCP v4/v6
 from enum import IntEnum
 from datetime import timedelta
 from dataclasses import dataclass
+from collections import OrderedDict
 from typing import ClassVar, Optional, List, Union, Iterator, Any
 from typing_extensions import Self
 
@@ -49,7 +50,7 @@ class DHCPOptionList:
     def __init__(self, data: Optional[List[DHCPOption]] = None):
         self.data = {}
         self.extend(data or [])
-    
+ 
     def __repr__(self) -> str:
         return repr(list(self.data.values()))
 
@@ -71,6 +72,11 @@ class DHCPOptionList:
 
     def set(self, key: IntEnum, value: Any):
         self.data[key] = value
+
+    def sort(self):
+        data = ((code, option) for code, option in self.data.items())
+        sort = sorted(data, key=lambda kv: kv[0])
+        self.data = OrderedDict(sort)
 
     def append(self, option):
         if option.opcode in self.data:

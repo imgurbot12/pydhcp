@@ -7,12 +7,12 @@ from logging import Logger, getLogger
 from dataclasses import dataclass, field
 from typing import Optional
 
-from pyserve import Address, Writer
+from pyserve import Address, UdpWriter
 from pyserve import Session as BaseSession
 
 from .backend import Backend
 from ..enum import MessageType, OpCode
-from ..message import Message
+from ..message import IpType, Message
 from ..options import *
 from ...enum import StatusCode
 from ...exceptions import DhcpError, NotAllowed, NotSupported, UnknownQueryType
@@ -24,13 +24,20 @@ __all__ = ['Session', 'SimpleSession']
 PORT = 68
 
 #: broadcast request for responding to messages
-BROADCAST = '255.255.255.255'
+BROADCAST = IPv4Address('255.255.255.255')
 
 #** Functions **#
 
-def is_broadcast(host: IPv4Address) -> bool:
-    """check if requested host is a broadcast"""
-    return bool(host.packed.strip(b'\x00'))
+def is_zero(host: IpType) -> bool:
+    """check if host-ip is zeroed"""
+    return bool(IPv4Address(host).packed.strip(b'\x00'))
+
+def non_zero(*ips: IpType) -> IPv4Address:
+    """search through available ips to find first non-zero available"""
+    for ip in (IPv4Address(ip) for ip in ips):
+        if not is_zero(ip):
+            return ip
+    raise RuntimeError(f'No NonZero IPs: {ips!r}')
 
 def mac_address(hwaddr: bytes) -> str:
     """translate hardware address to mac"""
@@ -78,10 +85,33 @@ class Session(BaseSession, ABC):
             client_hw=req.client_hw,
             options=OptionList(),
         )
+ 
+    def send(self, request: Message, response: Message):
+        """send completed response message"""
+        hosts = (
+            request.gateway_addr,
+            request.client_addr,
+            self.addr.host,
+            BROADCAST,
+        )
+        # apply server-identifier when given
+        if self.server_id:
+            response.options.append(OptServerId(self.server_id))
+        # sort options by opcode
+        response.options.sort()
+        # encode and send response
+        data = response.encode()
+        for ipv4 in hosts:
+            if is_zero(ipv4):
+                continue
+            host = str(ipv4)
+            info = f'{self.addr_str} | sent {len(data)} to {host}:{PORT}'
+            self.logger.debug(info)
+            self.writer.write(data, addr=(host, PORT))
 
     ## Session Impl
 
-    def connection_made(self, addr: Address, writer: Writer):
+    def connection_made(self, addr: Address, writer: UdpWriter):
         """handle session initialization on connection-made"""
         self.addr      = addr
         self.writer    = writer
@@ -122,20 +152,11 @@ class Session(BaseSession, ABC):
             response.options.extend([nak, status])
             raise e
         finally:
-            if response is None:
+            if response is not None:
+                self.send(request, response)
+            else:
                 self.logger.error(f'{self.addr_str} | No Response Given.')
                 self.writer.close()
-            else:
-                # configure response address
-                host = self.addr.host
-                host = BROADCAST if is_broadcast(host) else host
-                # apply server-identifier when given
-                if self.server_id:
-                    response.options.append(OptServerId(self.server_id))
-                # encode and send response
-                data = response.encode()
-                self.logger.debug(f'{self.addr_str} | sent {len(data)} bytes')
-                self.writer.write(data, addr=(host, PORT))
 
     def connection_lost(self, err: Optional[Exception]):
         """debug log connection lost"""
