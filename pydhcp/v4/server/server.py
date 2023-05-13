@@ -30,9 +30,9 @@ BROADCAST = IPv4Address('255.255.255.255')
 
 def is_zero(host: IpType) -> bool:
     """check if host-ip is zeroed"""
-    return bool(IPv4Address(host).packed.strip(b'\x00'))
+    return len(IPv4Address(host).packed.strip(b'\x00')) == 0
 
-def non_zero(*ips: IpType) -> IPv4Address:
+def find_host(*ips: IpType) -> IPv4Address:
     """search through available ips to find first non-zero available"""
     for ip in (IPv4Address(ip) for ip in ips):
         if not is_zero(ip):
