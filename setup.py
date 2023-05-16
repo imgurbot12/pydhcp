@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name='pydhcp3',
-    version='0.0.2',
+    version='0.0.3',
     license='MIT',
     author='Andrew Scott',
     author_email='imgurbot12@gmail.com',
@@ -16,6 +16,7 @@ setup(
     python_requires='>=3.6',
     packages=find_packages(),
     install_requires=[
+        'pyserve3',
         'pystructs3',
         'dataclasses',
         'typing_extensions'
