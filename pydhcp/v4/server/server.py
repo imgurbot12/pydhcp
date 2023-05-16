@@ -102,7 +102,7 @@ class Session(BaseSession, ABC):
         # encode and send response
         data = response.encode()
         for ipv4 in hosts:
-            if is_zero(ipv4) or ipv4:
+            if is_zero(ipv4):
                 continue
             host = str(ipv4)
             info = f'{self.addr_str} | sent {len(data)} bytes to {host}:{PORT}'

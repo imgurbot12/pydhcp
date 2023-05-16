@@ -196,6 +196,8 @@ class OptionCode(IntEnum):
     VirtualSubnetAllocation = 221
     # Options 222-223 returned in RFC 3679
     # Options 224-254 are reserved for private use
+    FortinetManagerIP      = 240 #[FortiNet FortiManager]
+    FortinetManagerDomain  = 241 #[FortiNet FortiManager]
     MSClasslessStaticRoute = 249
     MSEncodingLongOption   = 250
     ProxyAutoDiscover      = 252 #[RFC-draft-ietf-wrec-wpad-01]
