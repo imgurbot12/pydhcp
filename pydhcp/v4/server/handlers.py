@@ -115,7 +115,7 @@ def ipv4_handler(func: AssignFunc, cache: OptCache = None) -> HandlerFunc:
             OptDNS(assign.dns),
             OptRouter(assign.gateway),
             OptSubnetMask(assign.ipaddr.netmask),
-            OptIPLeaseTime(Seconds(int(assign.lease.total_seconds()))),
+            OptIPLeaseTime(int(assign.lease.total_seconds())),
         ]) 
     return assign_ipv4
 

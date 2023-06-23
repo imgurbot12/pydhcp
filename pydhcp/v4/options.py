@@ -1,7 +1,7 @@
 """
 DHCPv4 Option Implementations
 """
-from typing import ClassVar, List
+from typing import ClassVar, List, SupportsInt
 from typing_extensions import Annotated
 
 from pystructs import *
@@ -132,15 +132,15 @@ class OptStatusCode(Option):
 
 class OptIPLeaseTime(Option):
     opcode = OptionCode.IPAddressLeaseTime
-    value: Annotated[Seconds, Wrap[U32, Seconds]]
+    value: Annotated[SupportsInt, Wrap[U32, Seconds]]
 
 class OptRenwalTime(Option):
     opcode = OptionCode.RenewTimeValue
-    value: Annotated[Seconds, Wrap[U32, Seconds]]
+    value: Annotated[SupportsInt, Wrap[U32, Seconds]]
 
 class OptRebindTime(Option):
     opcode = OptionCode.RenewTimeValue
-    value: Annotated[Seconds, Wrap[U32, Seconds]]
+    value: Annotated[SupportsInt, Wrap[U32, Seconds]]
 
 class OptMessageType(Option):
     opcode = OptionCode.DHCPMessageType

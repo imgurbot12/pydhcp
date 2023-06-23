@@ -4,7 +4,7 @@ BaseClass ABC Protocol Implementations for DHCP v4/v6
 from enum import IntEnum
 from datetime import timedelta
 from collections import OrderedDict
-from typing import ClassVar, Optional, List, Union, Iterator, Any
+from typing import ClassVar, Optional, List, SupportsInt, Union, Iterator, Any
 
 from pystructs import Struct, GreedyBytes
 
@@ -20,8 +20,8 @@ class Timedelta(timedelta):
     def __class_getitem__(cls, field: str):
         return type(field.title(), (cls, ), {'field': field})
 
-    def __new__(cls, delta: int = 0):
-        return super().__new__(cls, **{cls.field: delta})
+    def __new__(cls, delta: SupportsInt = 0):
+        return super().__new__(cls, **{cls.field: int(delta)})
 
     def __int__(self) -> int:
         return int(self.total_seconds())
