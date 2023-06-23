@@ -5,7 +5,7 @@ from copy import copy
 from functools import wraps
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address, IPv4Interface
-from typing import Callable, NamedTuple, List, ClassVar, Optional, Dict, Any
+from typing import Callable, NamedTuple, List, Optional, Dict, Any
 from threading import Lock
 
 from pyderive import dataclass
@@ -13,6 +13,7 @@ from pyderive import dataclass
 from .server import HandlerFunc
 from ..message import Message, OptionCode
 from ..options import *
+from ...base import Seconds
 
 #** Variables **#
 __all__ = [
@@ -114,7 +115,7 @@ def ipv4_handler(func: AssignFunc, cache: OptCache = None) -> HandlerFunc:
             OptDNS(assign.dns),
             OptRouter(assign.gateway),
             OptSubnetMask(assign.ipaddr.netmask),
-            OptIPLeaseTime(int(assign.lease.total_seconds())),
+            OptIPLeaseTime(Seconds(int(assign.lease.total_seconds()))),
         ]) 
     return assign_ipv4
 

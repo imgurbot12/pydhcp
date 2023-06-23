@@ -1,7 +1,7 @@
 """
 DHCPv4 Option Implementations
 """
-from typing import ClassVar
+from typing import ClassVar, List
 from typing_extensions import Annotated
 
 from pystructs import *
@@ -120,7 +120,7 @@ class OptRouter(_Ipv4Option):
 
 class OptDNS(_Ipv4Option):
     opcode = OptionCode.DomainNameServer
-    value: GreedyList[IPv4]
+    value: Annotated[List[Ipv4Type], GreedyList[IPv4]]
 
 class OptRequestedAddr(_Ipv4Option):
     opcode = OptionCode.RequestedIPAddress
@@ -148,7 +148,7 @@ class OptMessageType(Option):
 
 class OptParamRequestList(Option):
     opcode = OptionCode.ParameterRequestList
-    value: GreedyList[OptionCodeInt]
+    value: Annotated[OptionCode, GreedyList[OptionCodeInt]]
 
 class OptMaxMessageSize(Option):
     opcode = OptionCode.MaximumDHCPMessageSize
@@ -174,7 +174,7 @@ class OptUserClassInfo(Option):
 
 class OptClientSystemArch(Option):
     opcode = OptionCode.ClientSystemArchitectureType
-    value: GreedyList[Annotated[Arch, Wrap[U16, Arch]]]
+    value: Annotated[List[Arch], GreedyList[Wrap[U16, Arch]]]
 
 class OptClientNetworkIface(Option):
     opcode = OptionCode.ClientNetworkInterfaceIdentifier
