@@ -7,6 +7,14 @@ __all__ = [
     'pxe_handler',
     'ipv4_handler',
 
+    'AssignFunc',
+    'Assignment',
+    'PxeTftpConfig',
+    'PxeDynConfig',
+    'PxeConfig',
+    'Cache',
+
+    'HandlerFunc',
     'Session',
     'SimpleSession'
 ]

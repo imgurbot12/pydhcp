@@ -15,7 +15,17 @@ from ..message import Message, OptionCode
 from ..options import *
 
 #** Variables **#
-__all__ = ['pxe_handler', 'ipv4_handler']
+__all__ = [
+    'pxe_handler', 
+    'ipv4_handler',
+
+    'AssignFunc',
+    'Assignment',
+    'PxeTftpConfig',
+    'PxeDynConfig',
+    'PxeConfig',
+    'Cache',
+]
 
 #: typehint for optional cache
 OptCache = Optional['Cache']
@@ -145,17 +155,17 @@ class CacheRecord(NamedTuple):
     assign:     Any
     expiration: Optional[datetime]
 
-@dataclass(repr=False)
 class Cache:
     """ThreadSafe Expiring Cache Implementation"""
-    __slots__ = ('mutex', 'cache')
+    __slots__ = ('expiration', 'maxsize', 'mutex', 'cache')
 
-    source:     ClassVar[str] = 'Cache'
-    expiration: Optional[timedelta] = None
-    maxsize:    Optional[int]       = None
-
-    def __post_init__(self):
-        self.mutex = Lock()
+    def __init__(self, 
+        expiration: Optional[timedelta] = None, 
+        maxsize:    Optional[int]       = None,
+    ):
+        self.expiration = expiration
+        self.maxsize    = maxsize
+        self.mutex      = Lock()
         self.cache: Dict[str, CacheRecord] = {}
 
     def get(self, key: str) -> Any:
