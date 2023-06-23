@@ -34,6 +34,7 @@ __all__ = [
     'OptTFTPServerName',
     'OptTFTPServerIP',
     'OptBootFile',
+    'OptPXEPathPrefix',
     'OptUserClassInfo',
     'OptClientSystemArch',
     'OptClientNetworkIface',
@@ -166,11 +167,14 @@ class OptClassIdentifier(Option):
 class OptTFTPServerName(Option):
     opcode = OptionCode.TFTPServerName
 
-class OptTFTPServerIP(Option):
+class OptTFTPServerIP(_Ipv4Option):
     opcode = OptionCode.TFTPServerIPAddress
 
 class OptBootFile(Option):
     opcode = OptionCode.BootfileName
+
+class OptPXEPathPrefix(Option):
+    opcode = OptionCode.PXELinuxPathPrefix
 
 class OptUserClassInfo(Option):
     opcode = OptionCode.UserClassInformation

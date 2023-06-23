@@ -185,6 +185,8 @@ class OptionCode(IntEnum):
     IPTelephone                      = 176
     EtherbootPacketCableAndCableHome = 177
     # Options 178-207 returned in RFC 3679
+    HPDMServer           = 202 #[HP Device-Manager 4.7]
+    HPDMGateway          = 203 #[HP Device-Manager 4.7]
     PXELinuxMagicString  = 208
     PXELinuxConfigFile   = 209
     PXELinuxPathPrefix   = 210

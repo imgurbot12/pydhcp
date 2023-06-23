@@ -5,13 +5,13 @@ from abc import ABC, abstractmethod
 from ipaddress import IPv4Address
 from logging import Logger, getLogger
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, Dict, List, Optional
 
 from pyserve import Address, UdpWriter
 from pyserve import Session as BaseSession
 
-from .backend import Backend
-from ..enum import MessageType, OpCode
+from .backend import Assignment, Backend
+from ..enum import MessageType, OpCode, OptionCode
 from ..message import IpType, Message
 from ..options import *
 from ...enum import StatusCode
@@ -25,6 +25,15 @@ PORT = 68
 
 #: broadcast request for responding to messages
 BROADCAST = IPv4Address('255.255.255.255')
+
+#: required opcodes to preserve even when not requested
+REQUIRED = {OptionCode.DHCPMessageType, }
+
+#: function definition for session processing callback
+SessionFunc = Callable[[Message, Message], None]
+
+#: logger generation function
+getBackLogger = lambda: getLogger('pydhcp')
 
 #** Functions **#
 
@@ -43,13 +52,21 @@ def mac_address(hwaddr: bytes) -> str:
     """translate hardware address to mac"""
     return ':'.join(f'{c:02x}' for c in hwaddr)
 
+def validate_options(req: Message, res: Message):
+    """validate and filter options based on requested operation-codes"""
+    options   = OptionList()
+    requested = set(req.requested_options())
+    for option in res.options:
+        if option.opcode in requested or option.opcode in REQUIRED:
+            continue
+        options.append(option)
+    res.options = options
+
 #** Classes **#
 
 @dataclass
 class Session(BaseSession, ABC):
-    backend:   Backend
-    logger:    Logger = field(default_factory=lambda: getLogger('pydhcp'))
-    server_id: Optional[IPv4Address] = None
+    logger: Logger = field(default_factory=getBackLogger)
 
     ## Overrides
 
@@ -164,10 +181,93 @@ class Session(BaseSession, ABC):
         log = self.logger.warning if err is not None else self.logger.debug
         log(msg)
 
-@dataclass
+"""
+1. INCOMING PACKET
+2. IS DISCOVER? -> Offer || IS REQUEST? -> Ack/Nack (Assignment Verification)
+3. GET OPTIONS AVAILABLE
+4. GET OPTIONS REQUESTED OR GET DEFAULTS TO INCLUDE
+5. DO DYNAMIC RENDERING OF OPTION COMPONENTS BASED ON REQUEST
+6. INCLUDE OPTIONS REQUESTED IN RESPONSE 
+"""
+
+"""
+POSSIBLE-IMPLEMENTATION?
+  1. option-code generation uses list of functions that recieves request/response
+  2. release response generation uses list of functions as well
+"""
+
+@dataclass(slots=True)
 class SimpleSession(Session):
-    backend: Backend
-    logger:  Logger = field(default_factory=lambda: getLogger('pydhcp'))
+    offer_funcs:   List[SessionFunc] = field(default_factory=list)
+    release_funcs: List[SessionFunc] = field(default_factory=list)
+
+    def process_discover(self, req: Message) -> Optional[Message]:
+        """"""
+        msg = OptMessageType(MessageType.Offer)
+        res = self.default_response(req)
+        for func in self.offer_funcs:
+            func(req, res)
+        validate_options(req, res)
+        res.options.setdefault(msg.opcode, msg)
+        return res
+
+    def process_request(self, req: Message) -> Optional[Message]:
+        """"""
+        msg = OptMessageType(MessageType.Ack)
+        res = self.default_response(req)
+        for func in self.offer_funcs:
+            func(req, res)
+        validate_options(req, res)
+        req.options.setdefault(msg.opcode, msg)
+        # ensure assignment matches request
+        netmask  = res.options.get(OptSubnetMask.opcode)
+        netmask  = netmask.value if netmask else None
+        req_addr = req.requested_address()
+        req_cast = req.broadcast_address()
+        conflict = req_addr and req_addr != res.your_addr
+        conflict = conflict or req_cast and req_cast != netmask
+        if conflict:
+            self.logger.warning(f'{self.addr_str} | REQUEST NAK {req_addr!r}')
+            nak = OptMessageType(MessageType.Nak)
+            res.options.set(nak.opcode, nak)
+        return res
+
+    def process_decline(self, req: Message) -> Optional[Message]:
+        """"""
+        mac = mac_address(req.client_hw)
+        res = self.default_response(req)
+        msg = OptMessageType(MessageType.Nak)
+        self.logger.info(f'{self.addr_str} | DECLINE {mac} {req.client_addr}')
+        for func in self.release_funcs:
+            func(req, res)
+        validate_options(req, res)
+        res.options.setdefault(msg.opcode, msg)
+        return res
+
+    def process_release(self, req: Message) -> Optional[Message]:
+        """"""
+        mac = mac_address(req.client_hw)
+        res = self.default_response(req)
+        msg = OptMessageType(MessageType.Ack)
+        self.logger.info(f'{self.addr_str} | RELEASE {mac} {req.client_addr}')
+        for func in self.release_funcs:
+            func(req, res)
+        validate_options(req, res)
+        res.options.setdefault(msg.opcode, msg)
+        return res
+
+@dataclass
+class SimpleSessionOld(Session):
+    # backend: Backend
+    # logger:  Logger              = field(default_factory=getBackLogger)
+    
+    def handle_request(self, req: Message, res: Message, assign: Assignment):
+        """update offer/response options to include the requested options"""
+        options   = []
+        requested = req.requested_options()
+        for opt in requested:
+            if opt == OptDNS.opcode:
+                options.append(OptDNS(assign.dns))
 
     def process_discover(self, req: Message) -> Optional[Message]:
         """process discover according to backend"""

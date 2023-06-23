@@ -25,6 +25,7 @@ def repr_items(name: str, items: Items) -> str:
     return f'{name}({values})'
 
 def summary_items(items: Items, join: str, prefix: str) -> str:
+    """generate a summary for the given items"""
     return join.join(f'{prefix}{k}={v}' for k,v in items)
 
 #** Classes **#
@@ -37,7 +38,7 @@ class Assignment(NamedTuple):
     dns:     IPv4Address
     gateway: IPv4Address
     lease:   timedelta
-    
+ 
     def __repr__(self) -> str:
         return repr_items('Assign', self.items())
 
@@ -50,6 +51,7 @@ class Assignment(NamedTuple):
         ]
 
     def summary(self, prefix: str = '', join: str = '\n') -> str:
+        """generate summary for included assignment item"""
         return summary_items(self.items(), join, prefix)
 
     @property
@@ -79,13 +81,22 @@ class Answer(NamedTuple):
     source: str
  
     def items(self) -> List[Tuple[str, Any]]:
+        """retrieve tuple of answer values"""
         return [*self.assign.items(), ('src', self.source)]
-    
+
     def summary(self, prefix: str = '', join: str = '\n') -> str:
+        """generate summary from answer items"""
         return summary_items(self.items(), join, prefix)
 
     def __repr__(self) -> str:
         return repr_items('Answer', self.items())
+
+"""
+PXE CONFIG OPTIONS:
+1. 
+"""
+
+
 
 class Backend(Protocol):
     """

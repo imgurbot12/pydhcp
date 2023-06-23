@@ -72,6 +72,9 @@ class DHCPOptionList:
 
     def set(self, key: IntEnum, value: Any):
         self.data[key] = value
+ 
+    def setdefault(self, key: IntEnum, value: Any):
+        self.data.setdefault(key, value)
 
     def sort(self):
         data = ((code, option) for code, option in self.data.items())
