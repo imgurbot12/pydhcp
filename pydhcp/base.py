@@ -3,15 +3,13 @@ BaseClass ABC Protocol Implementations for DHCP v4/v6
 """
 from enum import IntEnum
 from datetime import timedelta
-from dataclasses import dataclass
 from collections import OrderedDict
 from typing import ClassVar, Optional, List, Union, Iterator, Any
-from typing_extensions import Self
 
-from pystructs import Context, Struct
+from pystructs import Struct, GreedyBytes
 
 #** Variables **#
-__all__ = ['Timedelta', 'DHCPOption', 'DHCPOptionList']
+__all__ = ['Seconds', 'Microseconds', 'DHCPOption', 'DHCPOptionList']
 
 #** Classes **#
 
@@ -28,21 +26,12 @@ class Timedelta(timedelta):
     def __int__(self) -> int:
         return int(self.total_seconds())
 
-@dataclass
+Seconds      = Timedelta['seconds']
+Microseconds = Timedelta['microseconds']
+
 class DHCPOption(Struct):
     opcode: ClassVar[IntEnum]
-    value:  bytes
-
-    def encode(self, ctx: Context) -> bytes:
-        if hasattr(self, '__encoded__'):
-            return super().encode(ctx)
-        return self.value
-
-    @classmethod
-    def decode(cls, ctx: Context, raw: bytes) -> Self:
-        if hasattr(cls, '__encoded__'):
-            return super().decode(ctx, raw)
-        return cls(raw)
+    value:  GreedyBytes
 
 class DHCPOptionList:
     """Hybrid Between Dict/List for Quick Option Collection"""

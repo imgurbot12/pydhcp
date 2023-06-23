@@ -1,16 +1,16 @@
 """
 DHCPv6 Option Implementations
 """
-from dataclasses import dataclass
 from typing import ClassVar
-from typing_extensions import Self
+from typing_extensions import Annotated, Self
 
 from pystructs import *
+from pyderive import dataclass
 
 from .duid import DUID, read_duid, write_duid
 from .enum import OptionCode
 from ..enum import StatusCode
-from ..base import Timedelta, DHCPOption, DHCPOptionList
+from ..base import DHCPOption, DHCPOptionList, Microseconds, Seconds
 
 #** Variables **#
 __all__ = [
@@ -35,7 +35,7 @@ __all__ = [
 ]
 
 #: integer codec ot parse option-code
-OptionCodeInt = Int[16, OptionCode, 'OptionCode']
+OptionCodeInt = Annotated[OptionCode, Wrap[U16, OptionCode]]
 
 #** Functions **#
 
@@ -72,10 +72,9 @@ def write_option(ctx: Context, option: 'Option') -> bytes:
 
 #** Classes **#
 
-@struct
-class OptStruct:
+class OptStruct(Struct):
     code:  OptionCodeInt
-    value: SizedBytes[16]
+    value: Annotated[bytes, SizedBytes[U16]]
 
 class Option(DHCPOption):
     """DHCPv6 BaseClass Option Definition"""
@@ -85,7 +84,6 @@ class OptionList(DHCPOptionList):
     """DHCPv6 DHCPOptionList Implementation"""
     pass
 
-@dataclass
 class _DuidOption(Option):
     """BaseClass to Support DUID Option Implementations"""
     opcode: ClassVar[OptionCode]
@@ -104,75 +102,64 @@ class OptClientIdentifier(_DuidOption):
 class OptServerIdentifier(_DuidOption):
     opcode = OptionCode.ServerIdentifier
 
-@struct
 class OptNonTemporaryAddr(Option):
     opcode = OptionCode.NonTemporaryAddress
-    value:   Int32
-    t1:      Int32
-    t2:      Int32
+    value:   U32
+    t1:      U32
+    t2:      U32
     options: GreedyBytes
 
-@struct
 class OptTemporaryAddress(Option):
     opcode = OptionCode.TemporaryAddress
-    value:   Int32
+    value:   U32
     options: GreedyBytes
 
-@struct
 class OptAddress(Option):
     opcode = OptionCode.Address
-    value:          Ipv6
-    pref_lifetime:  Int[32, Timedelta, 'PrefferedLifetime']
-    valid_lifetime: Int[32, Timedelta, 'ValidLifetime']
+    value:          IPv6
+    pref_lifetime:  Annotated[Seconds, Wrap[U32, Seconds]]
+    valid_lifetime: Annotated[Seconds, Wrap[U32, Seconds]]
     options:        GreedyBytes
 
-@struct
 class OptRequestList(Option):
     opcode = OptionCode.OptionRequest
     value: GreedyList[OptionCodeInt]
 
-@struct
 class OptPreference(Option):
     opcode = OptionCode.Preference
-    value: Int8
+    value: U8
 
-@struct
 class OptElapsed(Option):
     opcode = OptionCode.ElapsedTime
-    value: Int[16, Timedelta['microseconds'], 'Elapsed']
+    value: Annotated[Microseconds, Wrap[U16, Microseconds]]
 
-@struct
 class OptRelay(Option):
     opcode = OptionCode.RelayMessage
     value: GreedyBytes
 
-@struct
 class OptAuth(Option):
     value: ClassVar[int] # remove value as init-arg
     opcode = OptionCode.Authentication
-    protocol:   Int8
-    algorithm:  Int8
-    rdm:        Int8
+    protocol:   U8
+    algorithm:  U8
+    rdm:        U8
     replay_det: StaticBytes[8]
     info:       GreedyBytes
 
-@struct
 class OptUnicast(Option):
     opcode = OptionCode.ServerUnicast
-    value: Ipv6
+    value: IPv6
 
-@struct
 class OptStatusCode(Option):
     opcode = OptionCode.StatusCode
-    value:   Int[16, StatusCode, 'StatusCode']
+    value:   Annotated[StatusCode, Wrap[U16, StatusCode]]
     message: GreedyBytes
 
-@struct
 class OptIdAssocPrefixDeleg(Option):
     opcode = OptionCode.IdAssocPrefixDeleg
-    value:   Int32
-    t1:      Int[32, Timedelta, 'T1']
-    t2:      Int[32, Timedelta, 'T2']
+    value:   U32
+    t1:      Annotated[Seconds, Wrap[U32, Seconds]]
+    t2:      Annotated[Seconds, Wrap[U32, Seconds]]
     options: GreedyBytes
  
     def read_options(self) -> OptionList:
@@ -183,14 +170,13 @@ class OptIdAssocPrefixDeleg(Option):
             options.append(option)
         return options
 
-@struct
 class OptIAPrefix(Option):
     value: ClassVar[int]
     opcode = OptionCode.IAPrefix
-    pref_lifetime:  Int[32, Timedelta, 'PrefLifetime']
-    valid_lifetime: Int[32, Timedelta, 'ValidLifetime']
-    prefix_length:  Int8
-    ipv6_prefix:    Ipv6
+    pref_lifetime:  Annotated[Seconds, Wrap[U32, Seconds]]
+    valid_lifetime: Annotated[Seconds, Wrap[U32, Seconds]]
+    prefix_length:  U8
+    ipv6_prefix:    IPv6
     options:        GreedyBytes
 
 #** Init **#
