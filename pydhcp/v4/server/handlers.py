@@ -11,8 +11,6 @@ from threading import Lock
 
 from pyderive import dataclass, field
 
-from build.lib.pydhcp.base import Timedelta
-
 from .server import HandlerFunc, Context
 from ..message import Message, OptionCode
 from ..options import *
