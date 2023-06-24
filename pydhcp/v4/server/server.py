@@ -26,7 +26,7 @@ PORT = 68
 BROADCAST = IPv4Address('255.255.255.255')
 
 #: required opcodes to preserve even when not requested
-REQUIRED = {OptionCode.DHCPMessageType, }
+REQUIRED = {OptionCode.DHCPMessageType, OptionCode.ServerIdentifier}
 
 #: function definition for session processing callback
 HandlerFunc = Callable[['Context'], None]
@@ -58,6 +58,7 @@ def validate_options(ctx: 'Context'):
     for option in ctx.response.options:
         if option.opcode in requested or option.opcode in REQUIRED:
             options.append(option)
+    options.sort()
     ctx.response.options = options
 
 #** Classes **#
@@ -109,8 +110,6 @@ class Session(BaseSession, ABC):
             IPv4Address(self.addr.host),
             BROADCAST,
         )
-        # sort options by opcode
-        response.options.sort()
         # encode and send response
         data = response.encode()
         for ipv4 in hosts:
@@ -185,6 +184,8 @@ class Context(NamedTuple):
 @dataclass(slots=True)
 class SimpleSession(Session):
     """Simplified DHCP Server Implementation"""
+    logger:    Logger
+    server_id: IPv4Address
     handlers:  List[HandlerFunc] = field(default_factory=list)
     releasers: List[HandlerFunc] = field(default_factory=list)
  
@@ -199,8 +200,10 @@ class SimpleSession(Session):
         ctx = Context(self, req, res)
         for func in self.handlers:
             func(ctx)
+        res.options.setdefault(OptServerId(self.server_id))
+        res.options.setdefault(msg)
         validate_options(ctx)
-        res.options.setdefault(msg.opcode, msg)
+        res.options.move_to_start(msg.opcode)
         # ensure your-ip is set during exchange
         if not res.your_addr:
             raise RuntimeError(f'Handlers Failed to Assign Client-IP')
@@ -213,8 +216,10 @@ class SimpleSession(Session):
         ctx = Context(self, req, res)
         for handler in self.handlers:
             handler(ctx)
+        res.options.setdefault(OptServerId(self.server_id))
+        res.options.setdefault(msg)
         validate_options(ctx)
-        req.options.setdefault(msg.opcode, msg)
+        res.options.move_to_start(msg.opcode)
         # ensure your-ip is set during exchange
         if not res.your_addr:
             raise RuntimeError(f'Handlers Failed to Assign Client-IP')
@@ -228,7 +233,7 @@ class SimpleSession(Session):
         if conflict:
             self.logger.warning(f'{self.addr_str} | REQUEST NAK {req_addr!r}')
             nak = OptMessageType(MessageType.Nak)
-            res.options.set(nak.opcode, nak)
+            res.options.set(nak)
         return res
 
     def process_decline(self, req: Message) -> Optional[Message]:
@@ -240,8 +245,10 @@ class SimpleSession(Session):
         self.logger.info(f'{self.addr_str} | DECLINE {mac} {req.client_addr}')
         for func in self.releasers:
             func(ctx)
+        res.options.setdefault(OptServerId(self.server_id))
+        res.options.setdefault(msg)
         validate_options(ctx)
-        res.options.setdefault(msg.opcode, msg)
+        res.options.move_to_start(msg.opcode)
         return res
 
     def process_release(self, req: Message) -> Optional[Message]:
@@ -253,8 +260,10 @@ class SimpleSession(Session):
         self.logger.info(f'{self.addr_str} | RELEASE {mac} {req.client_addr}')
         for func in self.releasers:
             func(ctx)
+        res.options.setdefault(OptServerId(self.server_id))
+        res.options.setdefault(msg)
         validate_options(ctx)
-        res.options.setdefault(msg.opcode, msg)
+        res.options.move_to_start(msg.opcode)
         return res
 
     def process_inform(self, _: Message) -> Optional[Message]:
