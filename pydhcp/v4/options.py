@@ -184,7 +184,6 @@ class OptClientNetworkIface(Option):
 
 class OptClientMachineID(Option):
     opcode = OptionCode.ClientMachineIdentifier
-    prefix: Const[b'\x00']
     value:  GreedyBytes
 
 class OptEtherBoot(Option):

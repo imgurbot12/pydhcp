@@ -4,7 +4,7 @@ PyServe Session DHCPv4 Implementation
 from abc import ABC, abstractmethod
 from ipaddress import IPv4Address
 from logging import Logger, getLogger
-from typing import Callable, List, Optional
+from typing import Callable, List, NamedTuple, Optional
 
 from pyserve import Address, UdpWriter
 from pyserve import Session as BaseSession
@@ -17,7 +17,7 @@ from ...enum import StatusCode
 from ...exceptions import DhcpError, NotAllowed, UnknownQueryType
 
 #** Variables **#
-__all__ = ['HandlerFunc', 'Session', 'SimpleSession']
+__all__ = ['HandlerFunc', 'Context', 'Session', 'SimpleSession']
 
 #: dhcp response port
 PORT = 68
@@ -29,10 +29,10 @@ BROADCAST = IPv4Address('255.255.255.255')
 REQUIRED = {OptionCode.DHCPMessageType, }
 
 #: function definition for session processing callback
-HandlerFunc = Callable[[Message, Message], None]
+HandlerFunc = Callable[['Context'], None]
 
 #: logger generation function
-getBackLogger = lambda: getLogger('pydhcp')
+logger = getLogger('pydhcp.v4')
 
 #** Functions **#
 
@@ -51,21 +51,21 @@ def mac_address(hwaddr: bytes) -> str:
     """translate hardware address to mac"""
     return ':'.join(f'{c:02x}' for c in hwaddr)
 
-def validate_options(req: Message, res: Message):
+def validate_options(ctx: 'Context'):
     """validate and filter options based on requested operation-codes"""
     options   = OptionList()
-    requested = set(req.requested_options())
-    for option in res.options:
+    requested = set(ctx.request.requested_options())
+    for option in ctx.response.options:
         if option.opcode in requested or option.opcode in REQUIRED:
             continue
         options.append(option)
-    res.options = options
+    ctx.response.options = options
 
 #** Classes **#
 
 @dataclass
 class Session(BaseSession, ABC):
-    logger: Logger = field(default_factory=getBackLogger)
+    logger: Logger = logger
 
     ## Overrides
 
@@ -177,6 +177,12 @@ class Session(BaseSession, ABC):
         log = self.logger.warning if err is not None else self.logger.debug
         log(msg)
 
+class Context(NamedTuple):
+    """Session Context to Pass to Handler Functions"""
+    session:  Session
+    request:  Message
+    response: Message
+
 @dataclass(slots=True)
 class SimpleSession(Session):
     """Simplified DHCP Server Implementation"""
@@ -191,9 +197,10 @@ class SimpleSession(Session):
         """process incoming discover request"""
         msg = OptMessageType(MessageType.Offer)
         res = self.default_response(req)
+        ctx = Context(self, req, res)
         for func in self.handlers:
-            func(req, res)
-        validate_options(req, res)
+            func(ctx)
+        validate_options(ctx)
         res.options.setdefault(msg.opcode, msg)
         # ensure your-ip is set during exchange
         if not res.your_addr:
@@ -204,9 +211,10 @@ class SimpleSession(Session):
         """process incoming dhcp request"""
         msg = OptMessageType(MessageType.Ack)
         res = self.default_response(req)
+        ctx = Context(self, req, res)
         for handler in self.handlers:
-            handler(req, res)
-        validate_options(req, res)
+            handler(ctx)
+        validate_options(ctx)
         req.options.setdefault(msg.opcode, msg)
         # ensure your-ip is set during exchange
         if not res.your_addr:
@@ -229,10 +237,11 @@ class SimpleSession(Session):
         mac = mac_address(req.client_hw)
         res = self.default_response(req)
         msg = OptMessageType(MessageType.Nak)
+        ctx = Context(self, req, res)
         self.logger.info(f'{self.addr_str} | DECLINE {mac} {req.client_addr}')
-        for func in self.handlers:
-            func(req, res)
-        validate_options(req, res)
+        for func in self.releasers:
+            func(ctx)
+        validate_options(ctx)
         res.options.setdefault(msg.opcode, msg)
         return res
 
@@ -241,10 +250,11 @@ class SimpleSession(Session):
         mac = mac_address(req.client_hw)
         res = self.default_response(req)
         msg = OptMessageType(MessageType.Ack)
+        ctx = Context(self, req, res)
         self.logger.info(f'{self.addr_str} | RELEASE {mac} {req.client_addr}')
-        for func in self.release_funcs:
-            func(req, res)
-        validate_options(req, res)
+        for func in self.releasers:
+            func(ctx)
+        validate_options(ctx)
         res.options.setdefault(msg.opcode, msg)
         return res
 

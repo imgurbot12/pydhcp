@@ -15,6 +15,7 @@ __all__ = [
     'Cache',
 
     'HandlerFunc',
+    'Context',
     'Session',
     'SimpleSession'
 ]
