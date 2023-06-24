@@ -26,7 +26,11 @@ PORT = 68
 BROADCAST = IPv4Address('255.255.255.255')
 
 #: required opcodes to preserve even when not requested
-REQUIRED = {OptionCode.DHCPMessageType, OptionCode.ServerIdentifier}
+REQUIRED = {
+    OptionCode.DHCPMessageType, 
+    OptionCode.ServerIdentifier,
+    OptionCode.IPAddressLeaseTime,
+}
 
 #: function definition for session processing callback
 HandlerFunc = Callable[['Context'], None]
