@@ -57,8 +57,7 @@ def validate_options(ctx: 'Context'):
     requested = set(ctx.request.requested_options())
     for option in ctx.response.options:
         if option.opcode in requested or option.opcode in REQUIRED:
-            continue
-        options.append(option)
+            options.append(option)
     ctx.response.options = options
 
 #** Classes **#
