@@ -11,6 +11,8 @@ from threading import Lock
 
 from pyderive import dataclass, field
 
+from build.lib.pydhcp.base import Timedelta
+
 from .server import HandlerFunc, Context
 from ..message import Message, OptionCode
 from ..options import *
@@ -144,13 +146,16 @@ def ipv4_handler(func: AssignFunc, cache: OptCache = None) -> HandlerFunc:
         """
         sess, req, res = ctx
         hwaddr = req.client_hw.hex()
+        source = 'CACHE'
         assign = cache.get(hwaddr) if cache else None
-        assign = assign or func(hwaddr)
+        if not assign:
+            source = 'LOOKUP'
+            assign = func(hwaddr)
         # log assignment
         dns = ','.join(str(dns) for dns in assign.dns)
         sess.logger.info(
             f'{sess.addr_str} | {hwaddr} -> ip={assign.ipaddr} ' + \
-            f'gw={assign.gateway} dns={dns} lease={assign.lease}')
+            f'gw={assign.gateway} dns={dns} lease={assign.lease} src={source}')
         # assign data to response
         res.your_addr = assign.ipaddr.ip
         res.options.extend([
