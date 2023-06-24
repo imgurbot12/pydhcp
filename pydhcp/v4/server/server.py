@@ -202,6 +202,7 @@ class SimpleSession(Session):
         msg = OptMessageType(MessageType.Offer)
         res = self.default_response(req)
         ctx = Context(self, req, res)
+        res.server_addr = self.server_id
         for func in self.handlers:
             func(ctx)
         res.options.setdefault(OptServerId(self.server_id))
@@ -218,6 +219,7 @@ class SimpleSession(Session):
         msg = OptMessageType(MessageType.Ack)
         res = self.default_response(req)
         ctx = Context(self, req, res)
+        res.server_addr = self.server_id
         for handler in self.handlers:
             handler(ctx)
         res.options.setdefault(OptServerId(self.server_id))
@@ -246,6 +248,7 @@ class SimpleSession(Session):
         res = self.default_response(req)
         msg = OptMessageType(MessageType.Nak)
         ctx = Context(self, req, res)
+        res.server_addr = self.server_id
         self.logger.info(f'{self.addr_str} | DECLINE {mac} {req.client_addr}')
         for func in self.releasers:
             func(ctx)
@@ -261,6 +264,7 @@ class SimpleSession(Session):
         res = self.default_response(req)
         msg = OptMessageType(MessageType.Ack)
         ctx = Context(self, req, res)
+        res.server_addr = self.server_id
         self.logger.info(f'{self.addr_str} | RELEASE {mac} {req.client_addr}')
         for func in self.releasers:
             func(ctx)
