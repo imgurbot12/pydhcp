@@ -149,6 +149,8 @@ def ipv4_handler(func: AssignFunc, cache: OptCache = None) -> HandlerFunc:
         if not assign:
             source = 'LOOKUP'
             assign = func(hwaddr)
+            if cache:
+                cache.put(hwaddr, assign)
         # log assignment
         dns = ','.join(str(dns) for dns in assign.dns)
         sess.logger.info(
