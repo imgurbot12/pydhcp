@@ -3,14 +3,12 @@ BaseClass ABC Protocol Implementations for DHCP v4/v6
 """
 from enum import IntEnum
 from datetime import timedelta
-from dataclasses import dataclass
-from typing import ClassVar, Optional, List, Union, Iterator, Any
-from typing_extensions import Self
+from typing import *
 
-from pystructs import Context, Struct
+from pystructs import Struct, GreedyBytes
 
 #** Variables **#
-__all__ = ['Timedelta', 'DHCPOption', 'DHCPOptionList']
+__all__ = ['Seconds', 'Microseconds', 'DHCPOption', 'DHCPOptionList']
 
 #** Classes **#
 
@@ -21,62 +19,106 @@ class Timedelta(timedelta):
     def __class_getitem__(cls, field: str):
         return type(field.title(), (cls, ), {'field': field})
 
-    def __new__(cls, delta: int = 0):
-        return super().__new__(cls, **{cls.field: delta})
+    def __new__(cls, delta: SupportsInt = 0):
+        return super().__new__(cls, **{cls.field: int(delta)})
 
     def __int__(self) -> int:
         return int(self.total_seconds())
 
-@dataclass
+Seconds      = Timedelta['seconds']
+Microseconds = Timedelta['microseconds']
+
 class DHCPOption(Struct):
     opcode: ClassVar[IntEnum]
-    value:  bytes
-
-    def encode(self, ctx: Context) -> bytes:
-        if hasattr(self, '__encoded__'):
-            return super().encode(ctx)
-        return self.value
-
-    @classmethod
-    def decode(cls, ctx: Context, raw: bytes) -> Self:
-        if hasattr(cls, '__encoded__'):
-            return super().decode(ctx, raw)
-        return cls(raw)
+    value:  GreedyBytes
 
 class DHCPOptionList:
     """Hybrid Between Dict/List for Quick Option Collection"""
 
     def __init__(self, data: Optional[List[DHCPOption]] = None):
-        self.data = {}
+        self.data    = []
+        self.opcodes = set()
         self.extend(data or [])
-    
+ 
+    def keys(self) -> Iterator[IntEnum]:
+        return (option.opcode for option in self.data)
+
+    def values(self) -> Iterator[DHCPOption]:
+        return (option for option in self.data)
+
+    def items(self) -> Iterator[Tuple[IntEnum, DHCPOption]]:
+        return iter((option.opcode, option) for option in self.data)
+
     def __repr__(self) -> str:
-        return repr(list(self.data.values()))
+        return repr(self.data)
 
     def __iter__(self) -> Iterator[DHCPOption]:
-        yield from self.data.values()
+        yield from self.values()
 
-    def __getitem__(self, op: IntEnum):
-        return self.data[op]
-
-    def __setitem__(self, op: IntEnum, value: Any):
-        self.data[op] = value
- 
     def __contains__(self, key: Union[IntEnum, DHCPOption]) -> bool:
         key = key.opcode if isinstance(key, DHCPOption) else key
-        return key in self.data
+        return key in self.opcodes
+
+    def __getitem__(self, op: IntEnum):
+        if op not in self.opcodes:
+            raise KeyError(op)
+        for option in self.data:
+            if option.opcode == op:
+                return option
+        raise KeyError(op)
+
+    def __setitem__(self, op: IntEnum, value: DHCPOption):
+        if op not in self.opcodes:
+            self.opcodes.add(op)
+            self.data.append((op, value))
+            return
+        for n, option in enumerate(self.data, 0):
+            if option.opcode == op:
+                self.data[n] = value
+                return
+        raise AttributeError(f'Failed to set {op!r}')
 
     def get(self, key: IntEnum, default: Any = None):
-        return self.data.get(key, default)
+        if key not in self.opcodes:
+            return default
+        return self[key]
 
-    def set(self, key: IntEnum, value: Any):
-        self.data[key] = value
+    def set(self, option: DHCPOption):
+        self[option.opcode] = option
+ 
+    def setdefault(self, option: DHCPOption):
+        if option.opcode not in self.opcodes:
+            self.append(option)
 
-    def append(self, option):
-        if option.opcode in self.data:
+    def sort(self):
+        self.data.sort(key=lambda option: option.opcode)
+
+    def append(self, option: DHCPOption):
+        if option.opcode in self.opcodes:
             raise ValueError(f'Option: {option.opcode!r} already present')
-        self.data[option.opcode] = option
-
-    def extend(self, options: List):
+        self.data.append(option)
+        self.opcodes.add(option.opcode)
+ 
+    def extend(self, options: Sequence[DHCPOption]):
         for opt in options:
             self.append(opt)
+
+    def insert(self, pos: int, option: DHCPOption):
+        if option.opcode in self.opcodes:
+            raise ValueError(f'Option: {option.opcode} already present')
+        self.data.insert(pos, option)
+        self.opcodes.add(option.opcode)
+ 
+    def index(self, key: IntEnum):
+        if key not in self.opcodes:
+            raise ValueError(f'Option: {key} not present')
+        for n, opcode in enumerate(self.keys(), 0):
+            if opcode == key:
+                return n
+        raise ValueError(f'Failed to Index: {key}')
+
+    def move_to_start(self, key: IntEnum):
+        index = self.index(key)
+        item  = self.data.pop(index)
+        self.opcodes.remove(key)
+        self.insert(0, item)

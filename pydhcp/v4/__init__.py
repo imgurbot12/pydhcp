@@ -29,6 +29,7 @@ __all__ = [
     'OptTFTPServerName',
     'OptTFTPServerIP',
     'OptBootFile',
+    'OptPXEPathPrefix',
     'OptUserClassInfo',
     'OptClientSystemArch',
     'OptClientNetworkIface',

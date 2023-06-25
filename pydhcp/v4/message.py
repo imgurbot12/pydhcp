@@ -1,12 +1,12 @@
 """
 DHCPv4 Message Implementation
 """
-from dataclasses import dataclass
 from ipaddress import IPv4Address
-from typing import Union, List, Optional
-from typing_extensions import Self
+from typing import List, Optional
+from typing_extensions import Annotated, Self
 
 from pystructs import *
+from pyderive import dataclass
 
 from .enum import MessageType, OpCode, OptionCode
 from .options import OptionList, read_option, write_option
@@ -20,9 +20,6 @@ MAGIC_COOKIE = bytes([0x63, 0x82, 0x53, 0x63])
 
 #: zeroed ip-address default for message values
 ZeroIp = IPv4Address('0.0.0.0')
-
-#: valid types supported for ip-address assignment
-IpType = Union[str, bytes, IPv4Address]
 
 #** Functions **#
 
@@ -38,41 +35,40 @@ def get_ip(op: OptionCode, options: OptionList) -> Optional[IPv4Address]:
 
 #** Classes **#
 
-@struct
-class Header:
+class Header(Struct):
     """DHCPv4 Message Header Group"""
-    opcode:       Int[8, OpCode, 'OpCode']
-    hw_type:      Int[8, HwType, 'HwType'] 
-    hw_length:    Int8
-    hops:         Int8
-    message_id:   Int32
-    seconds:      Int16
-    flags:        Int16
-    client_addr:  Ipv4
-    your_addr:    Ipv4
-    server_addr:  Ipv4
-    gateway_addr: Ipv4
-    hw_addr:      StaticBytes[16]
-    server_name:  StaticBytes[64]
-    boot_file:    StaticBytes[128]
-    magic_cookie: Const[MAGIC_COOKIE]
+    opcode:       Annotated[OpCode, Wrap[U8, OpCode]]
+    hw_type:      Annotated[HwType, Wrap[U8, HwType]]
+    hw_length:    U8
+    hops:         U8
+    message_id:   U32
+    seconds:      U16
+    flags:        U16
+    client_addr:  IPv4
+    your_addr:    IPv4
+    server_addr:  IPv4
+    gateway_addr: IPv4
+    hw_addr:      Annotated[bytes, StaticBytes[16]]
+    server_name:  Annotated[bytes, StaticBytes[64]]
+    boot_file:    Annotated[bytes, StaticBytes[128]]
+    magic_cookie: Annotated[bytes, Const[MAGIC_COOKIE]] = MAGIC_COOKIE
 
-@dataclass(repr=False)
+@dataclass(slots=True, repr=False)
 class Message:
     op:           OpCode
     id:           int
     client_hw:    bytes
     options:      OptionList
-    hw_type:      HwType = HwType.Ethernet
-    hops:         int    = 0
-    seconds:      int    = 0
-    flags:        int    = 0
-    client_addr:  IpType = ZeroIp
-    your_addr:    IpType = ZeroIp
-    server_addr:  IpType = ZeroIp
-    gateway_addr: IpType = ZeroIp 
-    server_name:  bytes  = b''
-    boot_file:    bytes  = b''
+    hw_type:      HwType   = HwType.Ethernet
+    hops:         int      = 0
+    seconds:      int      = 0
+    flags:        int      = 0
+    client_addr:  Ipv4Type = ZeroIp
+    your_addr:    Ipv4Type = ZeroIp
+    server_addr:  Ipv4Type = ZeroIp
+    gateway_addr: Ipv4Type = ZeroIp 
+    server_name:  bytes    = b''
+    boot_file:    bytes    = b''
  
     def __repr__(self) -> str:
         cname = self.__class__.__name__

@@ -4,45 +4,72 @@ PyServe Session DHCPv4 Implementation
 from abc import ABC, abstractmethod
 from ipaddress import IPv4Address
 from logging import Logger, getLogger
-from dataclasses import dataclass, field
-from typing import Optional
+from typing import Callable, List, NamedTuple, Optional
 
-from pyserve import Address, Writer
+from pyserve import Address, UdpWriter
 from pyserve import Session as BaseSession
+from pyderive import dataclass, field
 
-from .backend import Backend
-from ..enum import MessageType, OpCode
-from ..message import Message
+from ..enum import MessageType, OpCode, OptionCode
+from ..message import IpType, Message
 from ..options import *
 from ...enum import StatusCode
-from ...exceptions import DhcpError, NotAllowed, NotSupported, UnknownQueryType
+from ...exceptions import DhcpError, NotAllowed, UnknownQueryType
 
 #** Variables **#
-__all__ = ['Session', 'SimpleSession']
+__all__ = ['HandlerFunc', 'Context', 'Session', 'SimpleSession']
 
 #: dhcp response port
 PORT = 68
 
 #: broadcast request for responding to messages
-BROADCAST = '255.255.255.255'
+BROADCAST = IPv4Address('255.255.255.255')
+
+#: required opcodes to preserve even when not requested
+REQUIRED = {
+    OptionCode.DHCPMessageType, 
+    OptionCode.ServerIdentifier,
+    OptionCode.IPAddressLeaseTime,
+}
+
+#: function definition for session processing callback
+HandlerFunc = Callable[['Context'], None]
+
+#: logger generation function
+logger = getLogger('pydhcp.v4')
 
 #** Functions **#
 
-def is_broadcast(host: IPv4Address) -> bool:
-    """check if requested host is a broadcast"""
-    return bool(host.packed.strip(b'\x00'))
+def is_zero(host: IpType) -> bool:
+    """check if host-ip is zeroed"""
+    return len(IPv4Address(host).packed.strip(b'\x00')) == 0
+
+def find_host(*ips: IpType) -> IPv4Address:
+    """search through available ips to find first non-zero available"""
+    for ip in (IPv4Address(ip) for ip in ips):
+        if not is_zero(ip):
+            return ip
+    raise RuntimeError(f'No NonZero IPs: {ips!r}')
 
 def mac_address(hwaddr: bytes) -> str:
     """translate hardware address to mac"""
     return ':'.join(f'{c:02x}' for c in hwaddr)
 
+def validate_options(ctx: 'Context'):
+    """validate and filter options based on requested operation-codes"""
+    options   = OptionList()
+    requested = set(ctx.request.requested_options())
+    for option in ctx.response.options:
+        if option.opcode in requested or option.opcode in REQUIRED:
+            options.append(option)
+    options.sort()
+    ctx.response.options = options
+
 #** Classes **#
 
 @dataclass
 class Session(BaseSession, ABC):
-    backend:   Backend
-    logger:    Logger = field(default_factory=lambda: getLogger('pydhcp'))
-    server_id: Optional[IPv4Address] = None
+    logger: Logger = logger
 
     ## Overrides
 
@@ -78,10 +105,28 @@ class Session(BaseSession, ABC):
             client_hw=req.client_hw,
             options=OptionList(),
         )
+ 
+    def send(self, request: Message, response: Message):
+        """send completed response message"""
+        hosts = (
+            request.gateway_addr,
+            request.client_addr,
+            IPv4Address(self.addr.host),
+            BROADCAST,
+        )
+        # encode and send response
+        data = response.encode()
+        for ipv4 in hosts:
+            if is_zero(ipv4):
+                continue
+            host = str(ipv4)
+            info = f'{self.addr_str} | sent {len(data)} bytes to {host}:{PORT}'
+            self.logger.debug(info)
+            self.writer.write(data, addr=(host, PORT))
 
     ## Session Impl
 
-    def connection_made(self, addr: Address, writer: Writer):
+    def connection_made(self, addr: Address, writer: UdpWriter):
         """handle session initialization on connection-made"""
         self.addr      = addr
         self.writer    = writer
@@ -122,110 +167,115 @@ class Session(BaseSession, ABC):
             response.options.extend([nak, status])
             raise e
         finally:
-            if response is None:
+            if response is not None:
+                self.send(request, response)
+            else:
                 self.logger.error(f'{self.addr_str} | No Response Given.')
                 self.writer.close()
-            else:
-                # configure response address
-                host = self.addr.host
-                host = BROADCAST if is_broadcast(host) else host
-                # apply server-identifier when given
-                if self.server_id:
-                    response.options.append(OptServerId(self.server_id))
-                # encode and send response
-                data = response.encode()
-                self.logger.debug(f'{self.addr_str} | sent {len(data)} bytes')
-                self.writer.write(data, addr=(host, PORT))
 
     def connection_lost(self, err: Optional[Exception]):
         """debug log connection lost"""
-        self.logger.debug(f'{self.addr_str} | connection-lost err={err}')
+        msg = f'{self.addr_str} | connection-lost err={err}'
+        log = self.logger.warning if err is not None else self.logger.debug
+        log(msg)
 
-@dataclass
+class Context(NamedTuple):
+    """Session Context to Pass to Handler Functions"""
+    session:  Session
+    request:  Message
+    response: Message
+
+@dataclass(slots=True)
 class SimpleSession(Session):
-    backend: Backend
-    logger:  Logger = field(default_factory=lambda: getLogger('pydhcp'))
+    """Simplified DHCP Server Implementation"""
+    logger:    Logger
+    server_id: IPv4Address
+    handlers:  List[HandlerFunc] = field(default_factory=list)
+    releasers: List[HandlerFunc] = field(default_factory=list)
+ 
+    def __post_init__(self):
+        if not self.handlers:
+            raise ValueError('SimpleSession Handlers Empty!')
 
     def process_discover(self, req: Message) -> Optional[Message]:
-        """process discover according to backend"""
-        # retrieve and log assignment
-        mac    = req.client_hw.hex()
-        answer = self.backend.get_assignment(req.client_hw)
-        assign = answer.assign
-        self.logger.info(f'{self.addr_str} | DISCOVER {mac} {answer}')
-        # offer assignment on discover 
+        """process incoming discover request"""
+        msg = OptMessageType(MessageType.Offer)
         res = self.default_response(req)
-        res.your_addr = assign.your_addr
-        if self.server_id is not None:
-            res.server_addr = self.server_id
-        res.options.extend([
-            OptMessageType(MessageType.Offer),
-            OptDNS(assign.dns),
-            OptRouter(assign.gateway),
-            OptSubnetMask(assign.netmask),
-            OptIPLeaseTime(assign.lease_seconds),
-        ])
+        ctx = Context(self, req, res)
+        res.server_addr = self.server_id
+        for func in self.handlers:
+            func(ctx)
+        res.options.setdefault(OptServerId(self.server_id))
+        res.options.setdefault(msg)
+        validate_options(ctx)
+        res.options.move_to_start(msg.opcode)
+        # ensure your-ip is set during exchange
+        if not res.your_addr:
+            raise RuntimeError(f'Handlers Failed to Assign Client-IP')
         return res
 
     def process_request(self, req: Message) -> Optional[Message]:
-        """process request according to backend"""
-        # retrieve and log assignment
-        mac    = req.client_hw.hex()
-        answer = self.backend.get_assignment(req.client_hw)
-        assign = answer.assign
-        self.logger.info(f'{self.addr_str} | REQUEST {mac} {answer}')
-        # build list of response options based on request
-        reqops  = set(req.requested_options())
-        options = [opt for opt in (
-            OptDNS(assign.dns),
-            OptRouter(assign.gateway),
-            OptSubnetMask(assign.netmask),
-            OptBroadcast(assign.broadcast),
-        ) if reqops and opt.opcode in reqops]
-        # raise error if cannot satisfy and options
-        if not options:
-            raise NotSupported('No Requested Options Supported')
-        # build standard response
+        """process incoming dhcp request"""
+        msg = OptMessageType(MessageType.Ack)
         res = self.default_response(req)
-        res.your_addr = assign.your_addr
-        res.options.extend([
-            OptMessageType(MessageType.Ack),
-            OptIPLeaseTime(assign.lease_seconds),
-            *options,
-        ])
-        # check if request conflicts with server assignment
+        ctx = Context(self, req, res)
+        res.server_addr = self.server_id
+        for handler in self.handlers:
+            handler(ctx)
+        res.options.setdefault(OptServerId(self.server_id))
+        res.options.setdefault(msg)
+        validate_options(ctx)
+        res.options.move_to_start(msg.opcode)
+        # ensure your-ip is set during exchange
+        if not res.your_addr:
+            raise RuntimeError(f'Handlers Failed to Assign Client-IP')
+        # ensure assignment matches request
+        netmask  = res.options.get(OptSubnetMask.opcode)
+        netmask  = netmask.value if netmask else None
         req_addr = req.requested_address()
         req_cast = req.broadcast_address()
-        conflict = req_addr and req_addr != assign.your_addr
-        conflict = conflict or req_cast and req_cast != assign.netmask
+        conflict = req_addr and req_addr != res.your_addr
+        conflict = conflict or req_cast and req_cast != netmask
         if conflict:
             self.logger.warning(f'{self.addr_str} | REQUEST NAK {req_addr!r}')
             nak = OptMessageType(MessageType.Nak)
-            res.options.set(nak.opcode, nak)
+            res.options.set(nak)
         return res
 
     def process_decline(self, req: Message) -> Optional[Message]:
-        """process decline message according to backend"""
-        mac    = mac_address(req.client_hw)
-        assign = self.backend.get_assignment(req.client_hw).assign
-        self.logger.info(f'{self.addr_str} | DECLINE {mac} {assign.client}')
-        self.backend.del_assignment(req.client_hw)
+        """process incoming decline response"""
+        mac = mac_address(req.client_hw)
         res = self.default_response(req)
-        res.options.append(OptMessageType(MessageType.Nak))
+        msg = OptMessageType(MessageType.Nak)
+        ctx = Context(self, req, res)
+        res.server_addr = self.server_id
+        self.logger.info(f'{self.addr_str} | DECLINE {mac} {req.client_addr}')
+        for func in self.releasers:
+            func(ctx)
+        res.options.setdefault(OptServerId(self.server_id))
+        res.options.setdefault(msg)
+        validate_options(ctx)
+        res.options.move_to_start(msg.opcode)
         return res
 
     def process_release(self, req: Message) -> Optional[Message]:
-        """process release message according to backend"""
-        mac    = mac_address(req.client_hw)
-        assign = self.backend.get_assignment(req.client_hw).assign
-        self.logger.info(f'{self.addr_str} | RELEASE {mac} {assign.client}')
-        self.backend.del_assignment(req.client_hw)
+        """process incoming release request"""
+        mac = mac_address(req.client_hw)
         res = self.default_response(req)
-        res.options.append(OptMessageType(MessageType.Ack))
+        msg = OptMessageType(MessageType.Ack)
+        ctx = Context(self, req, res)
+        res.server_addr = self.server_id
+        self.logger.info(f'{self.addr_str} | RELEASE {mac} {req.client_addr}')
+        for func in self.releasers:
+            func(ctx)
+        res.options.setdefault(OptServerId(self.server_id))
+        res.options.setdefault(msg)
+        validate_options(ctx)
+        res.options.move_to_start(msg.opcode)
         return res
 
     def process_inform(self, _: Message) -> Optional[Message]:
-        """process inform message according to backend"""
+        """process incoming inform request"""
         raise NotAllowed('Inform not Allowed')
  
     def process_unknown(self, _: Message) -> Optional[Message]:

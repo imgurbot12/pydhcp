@@ -1,14 +1,15 @@
 """
 DHCPv4 Option Implementations
 """
-from dataclasses import dataclass
-from typing import ClassVar
+from typing import ClassVar, List, SupportsInt
+from typing_extensions import Annotated
 
 from pystructs import *
+from pyderive import dataclass
 
 from .enum import OptionCode, MessageType
 from ..enum import Arch, StatusCode
-from ..base import DHCPOption, DHCPOptionList, Timedelta
+from ..base import DHCPOption, DHCPOptionList, Seconds
 
 #** Variables **#
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     'OptTFTPServerName',
     'OptTFTPServerIP',
     'OptBootFile',
+    'OptPXEPathPrefix',
     'OptUserClassInfo',
     'OptClientSystemArch',
     'OptClientNetworkIface',
@@ -42,7 +44,7 @@ __all__ = [
 ]
 
 #: codec to parse Int8 as OptionCode
-OptionCodeInt = Int[8, OptionCode, 'OptionCode']
+OptionCodeInt = Annotated[OptionCode, Wrap[U8, OptionCode]]
 
 #** Functions **#
 
@@ -79,10 +81,9 @@ def write_option(ctx: Context, option) -> bytes:
 
 #** Classes **#
 
-@struct
-class OptStruct:
+class OptStruct(Struct):
     code:  OptionCodeInt
-    value: SizedBytes[8]
+    value: Annotated[bytes, SizedBytes[U8]]
 
 @dataclass
 class Option(DHCPOption):
@@ -101,10 +102,9 @@ class OptEnd(Option):
 class OptHostName(Option):
     opcode = OptionCode.HostName
 
-@struct
 class _Ipv4Option(Option):
     opcode: ClassVar[OptionCode]
-    value:  Ipv4
+    value:  IPv4
 
 class OptServerId(_Ipv4Option):
     opcode = OptionCode.ServerIdentifier
@@ -120,45 +120,39 @@ class OptRouter(_Ipv4Option):
 
 class OptDNS(_Ipv4Option):
     opcode = OptionCode.DomainNameServer
+    value: Annotated[List[Ipv4Type], GreedyList[IPv4]]
 
 class OptRequestedAddr(_Ipv4Option):
     opcode = OptionCode.RequestedIPAddress
 
-@struct
 class OptStatusCode(Option):
     opcode = OptionCode.StatusCode
-    value:   Int[8, StatusCode, 'StatusCode']
+    value:   Annotated[StatusCode, Wrap[U8, StatusCode]]
     message: GreedyBytes
 
-@struct
 class OptIPLeaseTime(Option):
     opcode = OptionCode.IPAddressLeaseTime
-    value: Int[32, Timedelta['seconds'], 'Lease']
+    value: Annotated[SupportsInt, Wrap[U32, Seconds]]
 
-@struct
 class OptRenwalTime(Option):
     opcode = OptionCode.RenewTimeValue
-    value: Int[32, Timedelta['seconds'], 'RenewTime']
+    value: Annotated[SupportsInt, Wrap[U32, Seconds]]
 
-@struct
 class OptRebindTime(Option):
     opcode = OptionCode.RenewTimeValue
-    value: Int[32, Timedelta['seconds'], 'RebindTime']
+    value: Annotated[SupportsInt, Wrap[U32, Seconds]]
 
-@struct
 class OptMessageType(Option):
     opcode = OptionCode.DHCPMessageType
-    value: Int[8, MessageType, 'MessageType']
+    value: Annotated[MessageType, Wrap[U8, MessageType]]
 
-@struct
 class OptParamRequestList(Option):
     opcode = OptionCode.ParameterRequestList
-    value: GreedyList[OptionCodeInt]
+    value: Annotated[OptionCode, GreedyList[OptionCodeInt]]
 
-@struct
 class OptMaxMessageSize(Option):
     opcode = OptionCode.MaximumDHCPMessageSize
-    value: Int16
+    value: U16
 
 class OptClassIdentifier(Option):
     opcode = OptionCode.ClassIdentifier
@@ -166,31 +160,30 @@ class OptClassIdentifier(Option):
 class OptTFTPServerName(Option):
     opcode = OptionCode.TFTPServerName
 
-class OptTFTPServerIP(Option):
+class OptTFTPServerIP(_Ipv4Option):
     opcode = OptionCode.TFTPServerIPAddress
 
 class OptBootFile(Option):
     opcode = OptionCode.BootfileName
 
+class OptPXEPathPrefix(Option):
+    opcode = OptionCode.PXELinuxPathPrefix
+
 class OptUserClassInfo(Option):
     opcode = OptionCode.UserClassInformation
 
-@struct
 class OptClientSystemArch(Option):
     opcode = OptionCode.ClientSystemArchitectureType
-    value: GreedyList[Int[16, Arch, 'Arch']]
+    value: Annotated[List[Arch], GreedyList[Wrap[U16, Arch]]]
 
-@struct
 class OptClientNetworkIface(Option):
     opcode = OptionCode.ClientNetworkInterfaceIdentifier
     value: Const[b'\x01']
-    major: Int8
-    minor: Int8
+    major: U8
+    minor: U8
 
-@struct
 class OptClientMachineID(Option):
     opcode = OptionCode.ClientMachineIdentifier
-    prefix: Const[b'\x00']
     value:  GreedyBytes
 
 class OptEtherBoot(Option):

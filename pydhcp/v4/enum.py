@@ -185,6 +185,8 @@ class OptionCode(IntEnum):
     IPTelephone                      = 176
     EtherbootPacketCableAndCableHome = 177
     # Options 178-207 returned in RFC 3679
+    HPDMServer           = 202 #[HP Device-Manager 4.7]
+    HPDMGateway          = 203 #[HP Device-Manager 4.7]
     PXELinuxMagicString  = 208
     PXELinuxConfigFile   = 209
     PXELinuxPathPrefix   = 210
@@ -196,6 +198,8 @@ class OptionCode(IntEnum):
     VirtualSubnetAllocation = 221
     # Options 222-223 returned in RFC 3679
     # Options 224-254 are reserved for private use
+    FortinetManagerIP      = 240 #[FortiNet FortiManager]
+    FortinetManagerDomain  = 241 #[FortiNet FortiManager]
     MSClasslessStaticRoute = 249
     MSEncodingLongOption   = 250
     ProxyAutoDiscover      = 252 #[RFC-draft-ietf-wrec-wpad-01]

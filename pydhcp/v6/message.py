@@ -1,12 +1,12 @@
 """
 DHCPv6 Message Implementation
 """
-from dataclasses import dataclass, field, asdict
 from ipaddress import IPv6Address
 from typing import Union
-from typing_extensions import Self
+from typing_extensions import Annotated, Self
 
-from pystructs import Context, Int, Int16, Ipv6, struct
+from pystructs import *
+from pyderive import dataclass, field, asdict
 
 from .enum import MessageType
 from .options import OptionList, read_option
@@ -15,10 +15,7 @@ from .options import OptionList, read_option
 __all__ = ['Message']
 
 #: codec type to support MessageType
-MessageInt = Int[8, MessageType, 'MessageType']
-
-#: valid types supported for ipv6-address
-IpType = Union[str, bytes, IPv6Address]
+MessageInt = Annotated[MessageType, Wrap[U8, MessageType]]
 
 #** Functions **#
 
@@ -37,25 +34,22 @@ def write_options(ctx: Context, data: bytearray, options: OptionList):
 
 #** Classes **#
 
-@struct
-class MsgHeader:
+class MsgHeader(Struct):
     op: MessageInt
-    id: Int[24]
+    id: U24
 
-@struct
-class RelayForwardHeader:
+class RelayForwardHeader(Struct):
     op:        MessageInt
-    hops:      Int16
-    link_addr: Ipv6
-    peer_addr: Ipv6
+    hops:      U16
+    link_addr: IPv6
+    peer_addr: IPv6
 
-@struct
-class RelayReplyHeader:
+class RelayReplyHeader(Struct):
     op:        MessageInt
-    link_addr: Ipv6
-    peer_addr: Ipv6 
+    link_addr: IPv6
+    peer_addr: IPv6
 
-@dataclass(repr=False)
+@dataclass(slots=True, repr=False)
 class Message:
     op:      MessageType
     id:      int
@@ -85,12 +79,11 @@ class Message:
         options = read_options(ctx, raw)
         return cls(header.op, header.id, options)
 
-
-@dataclass(repr=False)
+@dataclass(slots=True, repr=False)
 class RelayReplyMessage:
     op:        MessageType
-    link_addr: IpType
-    peer_addr: IpType
+    link_addr: Ipv6Type
+    peer_addr: Ipv6Type
     options:   OptionList 
 
     def __repr__(self) -> str:
@@ -112,27 +105,27 @@ class RelayReplyMessage:
         # serialize content
         ctx   = Context()
         data  = bytearray()
-        data += RelayForwardHeader(**fields).encode(ctx)
+        data += RelayReplyHeader(**fields).encode(ctx)
         write_options(ctx, data, self.options)
         return bytes(data)
-    
+ 
     @classmethod
     def decode(cls, raw: bytes) -> Self:
         """
         Decode DHCPv6 RelayReply message from bytes
         """
         ctx     = Context()
-        header  = MsgHeader.decode(ctx, raw)
+        header  = RelayReplyHeader.decode(ctx, raw)
         fields  = asdict(header) #type: ignore
         options = read_options(ctx, raw)
         return cls(options=options, **fields)
 
-@dataclass(repr=False)
+@dataclass(slots=True, repr=False)
 class RelayForwardMessage(RelayReplyMessage):
     op:        MessageType
     hops:      int
-    link_addr: IpType
-    peer_addr: IpType
+    link_addr: Ipv6Type
+    peer_addr: Ipv6Type
     options:   OptionList
 
     def encode(self) -> bytes:
@@ -152,7 +145,7 @@ class RelayForwardMessage(RelayReplyMessage):
         Decode DHCPv6 RelayForward message from bytes
         """
         ctx     = Context()
-        header  = MsgHeader.decode(ctx, raw)
+        header  = RelayForwardHeader.decode(ctx, raw)
         options = read_options(ctx, raw)
         return cls(
             op=header.op, 

@@ -3,6 +3,7 @@ DHCP Unique Identifier (DUID) Implementations (rfc8415 section-11)
 """
 from datetime import datetime, timedelta, timezone
 from typing import ClassVar
+from typing_extensions import Annotated
 
 from pystructs import *
 
@@ -22,7 +23,7 @@ __all__ = [
 ]
 
 #: codec handler for HwType enum
-HwInt = Int[16, HwType, 'HwType']
+HwInt = Annotated[HwType, Wrap[U16, HwType]]
 
 #: January 1, 2000 UTC
 EPOCH = datetime(year=2000, month=1, day=1, tzinfo=timezone.utc)
@@ -34,7 +35,7 @@ def read_duid(raw: bytes) -> 'DUID':
     read duid struct from raw bytes
     """
     ctx    = Context()
-    duid   = DuidType(Int16.decode(ctx, raw))
+    duid   = DuidType(decode(ctx, raw, U8))
     dclass = DUIDS.get(duid, None)
     if dclass is None:
         raise ValueError(f'Unsupported DUID: {duid!r}')
@@ -45,7 +46,7 @@ def write_duid(duid: 'DUID'):
     serialize duid struct into raw bytes
     """
     ctx = Context()
-    return Int16.encode(ctx, duid.duid) + duid.encode(ctx)
+    return encode(ctx, U16, duid.duid) + duid.encode(ctx)
 
 #** Classes **#
 
@@ -66,27 +67,23 @@ class Datetime(datetime):
 class DUID(Struct):
     duid: ClassVar[DuidType]
 
-@struct
 class LinkLayerPlusTime(DUID):
     duid = DuidType.LinkLayerPlusTime
     hw_type: HwInt
-    time:    Int[32, Datetime, 'Datetime']
+    time:    Annotated[int, Wrap[U32, Datetime]]
     address: GreedyBytes
 
-@struct
 class EnterpriseNumber(DUID):
     duid = DuidType.EnterpriseNumber
-    en:         Int16
-    en_contd:   Int16
+    en:         U16
+    en_contd:   U16
     identifier: GreedyBytes
 
-@struct
 class LinkLayer(DUID):
     duid = DuidType.LinkLayer
     hw_type: HwInt
     address: GreedyBytes
 
-@struct
 class UniqueIdentifier(DUID):
     duid = DuidType.UniqueIdentifier
     uuid: StaticBytes[128]
