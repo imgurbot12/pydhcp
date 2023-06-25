@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name='pydhcp3',
-    version='0.0.3',
+    version='0.0.4',
     license='MIT',
     author='Andrew Scott',
     author_email='imgurbot12@gmail.com',
