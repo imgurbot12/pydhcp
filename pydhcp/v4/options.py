@@ -3,6 +3,7 @@ DHCPv4 Option Implementations
 """
 from typing import ClassVar, List, SupportsInt
 from typing_extensions import Annotated
+from warnings import warn
 
 from pystructs import *
 from pyderive import dataclass
@@ -84,6 +85,15 @@ def write_option(ctx: Context, option) -> bytes:
 class OptStruct(Struct):
     code:  OptionCodeInt
     value: Annotated[bytes, SizedBytes[U8]]
+ 
+    def __post_init__(self):
+        """warn when value is too long and truncate"""
+        if len(self.value) <= 255:
+            return
+        code       = self.code
+        vlen       = len(self.value)
+        self.value = self.value[:252] + b'...'
+        warn(f'{code!r} value too long {vlen}. truncating!', RuntimeWarning)
 
 @dataclass
 class Option(DHCPOption):
