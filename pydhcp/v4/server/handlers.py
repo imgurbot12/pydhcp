@@ -122,7 +122,7 @@ def pxe_handler(rootcfg: 'PxeConfig') -> HandlerFunc:
             res.options.append(OptTFTPServerName(config.hostname))
             message.append(f'host={config.hostname.decode()!r}')
         if config.filename:
-            res.options.append(OptBootFile(config.filename))
+            res.options.append(OptBootFile(config.filename + b'\x00'))
             message.append(f'file={config.filename.decode()!r}')
         sess.logger.info(' '.join(message))
     return assign_pxe
