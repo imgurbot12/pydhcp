@@ -17,8 +17,8 @@ setup(
     packages=find_packages(),
     install_requires=[
         'pyderive3>=0.0.6'
-        'pystructs3>=0.0.5'
-        'pyserve3>=0.0.6'
+        'pystructs3>=0.0.7'
+        'pyserve3>=0.0.7'
         'typing_extensions>=4.7.1'
     ],
     classifiers=[
