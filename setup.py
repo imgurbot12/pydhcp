@@ -13,13 +13,13 @@ setup(
     description="Simple Python DHCP Library. DHCP Packet-Parsing/Client/Server",
     long_description=readme,
     long_description_content_type="text/markdown",
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     packages=find_packages(),
     install_requires=[
-        'pyserve3',
-        'pyderive3',
-        'pystructs3',
-        'typing_extensions'
+        'pyderive3>=0.0.6'
+        'pystructs3>=0.0.5'
+        'pyserve3>=0.0.6'
+        'typing_extensions>=4.7.1'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
