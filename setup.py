@@ -16,10 +16,10 @@ setup(
     python_requires='>=3.8',
     packages=find_packages(),
     install_requires=[
-        'pyderive3>=0.0.6'
-        'pystructs3>=0.0.7'
-        'pyserve3>=0.0.7'
-        'typing_extensions>=4.7.1'
+        'pyderive3>=0.0.6',
+        'pystructs3>=0.0.7',
+        'pyserve3>=0.0.7',
+        'typing_extensions>=4.7.1',
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
