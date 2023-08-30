@@ -9,7 +9,7 @@ from ipaddress import IPv4Address, IPv4Interface
 from typing import *
 from threading import Lock
 
-from pyderive import dataclass, field
+from pyderive.extensions.validate import BaseModel, Bytes, field
 
 from .server import HandlerFunc, Context
 from ..message import Message, OptionCode
@@ -168,24 +168,22 @@ def ipv4_handler(func: AssignFunc, cache: OptCache = None) -> HandlerFunc:
 
 #** Classes **#
 
-class Assignment(NamedTuple):
+class Assignment(BaseModel, typecast=True):
     """IP Assignment Function"""
     dns:     List[IPv4Address]
     ipaddr:  IPv4Interface
     gateway: IPv4Address
     lease:   timedelta
 
-@dataclass
-class PxeTftpConfig:
+class PxeTftpConfig(BaseModel, typecast=True):
     """Dynamic TFTP PXE Configuration"""
-    filename: bytes
-    hostname: Optional[bytes]       = None
+    filename: Bytes
+    hostname: Optional[Bytes]       = None
     ipaddr:   Optional[IPv4Address] = None
 
 ArchT = Union[int, str, Arch]
 
-@dataclass
-class PxeDynConfig:
+class PxeDynConfig(BaseModel):
     """Dynamic PXE Configuration Settings and Translations"""
     vendors: Dict[str, str]             = field(default_factory=dict)
     arches:  Dict[ArchT, PxeTftpConfig] = field(default_factory=dict)
@@ -195,17 +193,16 @@ class PxeDynConfig:
         """validate and ensure arches are arch-enums"""
         self.arches  = {_enum(k, Arch):v for k, v in self.arches.items()}
 
-@dataclass
-class PxeConfig:
+class PxeConfig(BaseModel, typecast=True):
     """DHCP PXE Confguration Settings"""
     ipaddr:   IPv4Address
     primary:  bool            = False
-    prefix:   Optional[bytes] = None
-    hostname: Optional[bytes] = None
-    filename: Optional[bytes] = None
+    prefix:   Optional[Bytes] = None
+    hostname: Optional[Bytes] = None
+    filename: Optional[Bytes] = None
     dynamic:  PxeDynConfig    = field(default_factory=PxeDynConfig)
 
-class CacheRecord(NamedTuple):
+class CacheRecord(BaseModel):
     """Cache Record Instance"""
     assign:     Any
     expiration: Optional[datetime]

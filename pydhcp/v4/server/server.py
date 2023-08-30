@@ -30,6 +30,8 @@ REQUIRED = {
     OptionCode.DHCPMessageType, 
     OptionCode.ServerIdentifier,
     OptionCode.IPAddressLeaseTime,
+    OptionCode.DomainName,
+    OptionCode.DNSDomainSearchList,
 }
 
 #: function definition for session processing callback

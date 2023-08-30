@@ -19,6 +19,8 @@ __all__ = [
     'OptRouter',
     'OptDNS',
     'OptRequestedAddr',
+    'OptDomainName',
+    'OptDomainSearchList',
     'OptIPLeaseTime',
     'OptRenwalTime',
     'OptRebindTime',

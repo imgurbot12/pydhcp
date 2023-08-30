@@ -25,6 +25,8 @@ __all__ = [
     'OptRouter',
     'OptDNS',
     'OptRequestedAddr',
+    'OptDomainName',
+    'OptDomainSearchList',
     'OptStatusCode',
     'OptIPLeaseTime',
     'OptRenwalTime',
@@ -134,6 +136,14 @@ class OptDNS(_Ipv4Option):
 
 class OptRequestedAddr(_Ipv4Option):
     opcode = OptionCode.RequestedIPAddress
+
+class OptDomainName(Option):
+    opcode = OptionCode.DomainName
+    value: Annotated[str, GreedyBytes]
+
+class OptDomainSearchList(Option):
+    opcode = OptionCode.DNSDomainSearchList
+    value: Annotated[List[bytes], GreedyList[Domain]]
 
 class OptStatusCode(Option):
     opcode = OptionCode.StatusCode
