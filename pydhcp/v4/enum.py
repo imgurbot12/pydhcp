@@ -180,7 +180,8 @@ class OptionCode(IntEnum):
     OPTION_V4_PCP_SERVER             = 158 #[RFC7291]
     OPTION_V4_PORTPARAMS             = 159 #[RFC7618]
     OPTION_MUD_URL_V4                = 161 #[RFC8520]
-    OPTION_V4_DNR                    = 162 #[RFC-ietf-add-dnr-13] 
+    OPTION_V4_DNR                    = 162 #[RFC-ietf-add-dnr-13]
+    CiscoLastTransactionTime         = 163 #[Cisco DHCP Options]
     Etherboot                        = 175
     IPTelephone                      = 176
     EtherbootPacketCableAndCableHome = 177
@@ -202,5 +203,6 @@ class OptionCode(IntEnum):
     FortinetManagerDomain  = 241 #[FortiNet FortiManager]
     MSClasslessStaticRoute = 249
     MSEncodingLongOption   = 250
+    CiscoAutoConfigure     = 251 #[Cisco DHCP Options] 
     ProxyAutoDiscover      = 252 #[RFC-draft-ietf-wrec-wpad-01]
     End                    = 255
