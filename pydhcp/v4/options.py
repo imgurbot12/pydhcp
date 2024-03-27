@@ -44,6 +44,7 @@ __all__ = [
     'OptClientNetworkIface',
     'OptClientMachineID',
     'OptEtherBoot',
+    'OptVendorSpecificInformation',
 ]
 
 #: codec to parse Int8 as OptionCode
@@ -54,7 +55,7 @@ OptionCodeInt = Annotated[OptionCode, Wrap[U8, OptionCode]]
 def read_option(ctx: Context, raw: bytes) -> 'Option':
     """
     read and deserialize best option-class to match option content
-    
+
     :param ctx: serialization context
     :param raw: raw bytes to deserialized into an option
     :return:    option object
@@ -72,7 +73,7 @@ def read_option(ctx: Context, raw: bytes) -> 'Option':
 def write_option(ctx: Context, option) -> bytes:
     """
     write and serialize option-class into raw-bytes
-    
+
     :param ctx: serialization context
     :param raw: option object to serialize
     :return:    serialized bytes
@@ -87,7 +88,7 @@ def write_option(ctx: Context, option) -> bytes:
 class OptStruct(Struct):
     code:  OptionCodeInt
     value: Annotated[bytes, SizedBytes[U8]]
- 
+
     def __post_init__(self):
         """warn when value is too long and truncate"""
         if len(self.value) <= 255:
@@ -209,11 +210,14 @@ class OptClientMachineID(Option):
 class OptEtherBoot(Option):
     opcode = OptionCode.Etherboot
 
+class OptVendorSpecificInformation(Option):
+    opcode = OptionCode.VendorSpecificInformation
+
 #** Init **#
 
 #: map of option-codes to option-subclasses
 OPTIONS = {
     value.opcode:value
     for value in globals().values()
-    if isinstance(value, type) and issubclass(value, Option) 
+    if isinstance(value, type) and issubclass(value, Option)
 }

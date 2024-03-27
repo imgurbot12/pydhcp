@@ -4,8 +4,9 @@ BaseClass ABC Protocol Implementations for DHCP v4/v6
 from enum import IntEnum
 from datetime import timedelta
 from typing import *
+from typing_extensions import Annotated
 
-from pystructs import Struct, GreedyBytes
+from pystructs import Codec, Struct, GreedyBytes
 
 #** Variables **#
 __all__ = ['Seconds', 'Microseconds', 'DHCPOption', 'DHCPOptionList']
@@ -30,7 +31,7 @@ Microseconds = Timedelta['microseconds']
 
 class DHCPOption(Struct):
     opcode: ClassVar[IntEnum]
-    value:  GreedyBytes
+    value:  Annotated[Codec, GreedyBytes]
 
 class DHCPOptionList:
     """Hybrid Between Dict/List for Quick Option Collection"""
@@ -39,7 +40,7 @@ class DHCPOptionList:
         self.data    = []
         self.opcodes = set()
         self.extend(data or [])
- 
+
     def keys(self) -> Iterator[IntEnum]:
         return (option.opcode for option in self.data)
 
@@ -85,7 +86,7 @@ class DHCPOptionList:
 
     def set(self, option: DHCPOption):
         self[option.opcode] = option
- 
+
     def setdefault(self, option: DHCPOption):
         if option.opcode not in self.opcodes:
             self.append(option)
@@ -98,7 +99,7 @@ class DHCPOptionList:
             raise ValueError(f'Option: {option.opcode!r} already present')
         self.data.append(option)
         self.opcodes.add(option.opcode)
- 
+
     def extend(self, options: Sequence[DHCPOption]):
         for opt in options:
             self.append(opt)
@@ -108,7 +109,7 @@ class DHCPOptionList:
             raise ValueError(f'Option: {option.opcode} already present')
         self.data.insert(pos, option)
         self.opcodes.add(option.opcode)
- 
+
     def index(self, key: IntEnum):
         if key not in self.opcodes:
             raise ValueError(f'Option: {key} not present')

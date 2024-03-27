@@ -4,8 +4,8 @@ DHCPv4 Implementation
 
 #** Variables **#
 __all__ = [
-    'OpCode', 
-    'MessageType', 
+    'OpCode',
+    'MessageType',
     'OptionCode',
 
     'Message',
@@ -37,6 +37,7 @@ __all__ = [
     'OptClientNetworkIface',
     'OptClientMachineID',
     'OptEtherBoot',
+    'OptVendorSpecificInformation',
 ]
 
 #** Imports **#
