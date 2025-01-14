@@ -4,17 +4,76 @@ DHCPv4 Enums
 from enum import IntEnum
 
 #** Variables **#
-__all__ = ['OpCode', 'MessageType', 'OptionCode']
+__all__ = ['Arch', 'HwType', 'OpCode', 'MessageType', 'OptionCode']
 
 #** Classes **#
 
+class Arch(IntEnum):
+    """
+    Hardware Architecture Type (RFC 4578, Section 2.1.)
+    """
+    INTEL_X86PC       = 0
+    NEC_PC98          = 1
+    EFI_ITANIUM       = 2
+    DEC_ALPHA         = 3
+    ARC_X86           = 4
+    INTEL_LEAN_CLIENT = 5
+    EFI_IA32          = 6
+    EFI_BC            = 7
+    EFI_XSCALE        = 8
+    EFI_X86_64        = 9
+
+class HwType(IntEnum):
+    """
+    Hardware Type (RFC 2132)
+    """
+    Ethernet             = 1
+    ExperimentalEthernet = 2
+    AmateurRadioAX25     = 3
+    ProteonTokenRing     = 4
+    Chaos                = 5
+    IEEE802              = 6
+    ARCNET               = 7
+    Hyperchannel         = 8
+    Lanstar              = 9
+    Autonet              = 10
+    LocalTalk            = 11
+    LocalNet             = 12
+    UltraLink            = 13
+    SMDS                 = 14
+    FrameRelay           = 15
+    ATM                  = 16
+    HDLC                 = 17
+    FibreChannel         = 18
+    ATM2                 = 19
+    SerialLine           = 20
+    ATM3                 = 21
+    MILSTD188220         = 22
+    Metricom             = 23
+    IEEE1394             = 24
+    MAPOS                = 25
+    Twinaxial            = 26
+    EUI64                = 27
+    HIPARP               = 28
+    ISO7816              = 29
+    ARPSec               = 30
+    IPsec                = 31
+    Infiniband           = 32
+    CAI                  = 33
+    WiegandInterface     = 34
+    PureIP               = 35
+
 class OpCode(IntEnum):
-    """Message Operation-Code (REQUEST/REPLY)"""
+    """
+    Message Operation-Code (REQUEST/REPLY)
+    """
     BootRequest = 1
     BootReply   = 2
 
 class MessageType(IntEnum):
-    """DHCP Message Types - DISCOVER, OFFER, etc"""
+    """
+    DHCP Message Types - DISCOVER, OFFER, etc
+    """
     Discover  = 1
     Offer     = 2
     Request   = 3
@@ -25,7 +84,9 @@ class MessageType(IntEnum):
     Inform    = 8
 
 class OptionCode(IntEnum):
-    """DHCP Request Paramter OptionCodes"""
+    """
+    DHCP Request Paramter OptionCodes
+    """
     OptionPad                                  = 0
     SubnetMask                                 = 1
     TimeOffset                                 = 2
@@ -203,6 +264,6 @@ class OptionCode(IntEnum):
     FortinetManagerDomain  = 241 #[FortiNet FortiManager]
     MSClasslessStaticRoute = 249
     MSEncodingLongOption   = 250
-    CiscoAutoConfigure     = 251 #[Cisco DHCP Options] 
+    CiscoAutoConfigure     = 251 #[Cisco DHCP Options]
     ProxyAutoDiscover      = 252 #[RFC-draft-ietf-wrec-wpad-01]
     End                    = 255

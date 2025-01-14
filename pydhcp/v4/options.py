@@ -1,223 +1,328 @@
 """
 DHCPv4 Option Implementations
 """
-from typing import ClassVar, List, SupportsInt
-from typing_extensions import Annotated
-from warnings import warn
+from functools import lru_cache
+from typing import ClassVar, List, Optional, Type
+from typing_extensions import Annotated, Self
 
-from pystructs import *
-from pyderive import dataclass
+from pystructs import (
+    I32, U16, U32, U8, Context, Domain, GreedyBytes,
+    GreedyList, HintedBytes, IPv4, Struct)
 
-from .enum import OptionCode, MessageType
-from ..enum import Arch, StatusCode
-from ..base import DHCPOption, DHCPOptionList, Seconds
+from .enum import Arch, MessageType, OptionCode
+from ..abc import DHCPOption
 
 #** Variables **#
 __all__ = [
-    'read_option',
+    'pack_option',
+    'unpack_option',
 
     'Option',
-    'OptionList',
-    'OptEnd',
-    'OptServerId',
-    'OptSubnetMask',
-    'OptBroadcast',
-    'OptRouter',
-    'OptDNS',
-    'OptRequestedAddr',
-    'OptDomainName',
-    'OptDomainSearchList',
-    'OptStatusCode',
-    'OptIPLeaseTime',
-    'OptRenwalTime',
-    'OptRebindTime',
-    'OptMessageType',
-    'OptParamRequestList',
-    'OptMaxMessageSize',
-    'OptClassIdentifier',
-    'OptTFTPServerName',
-    'OptTFTPServerIP',
-    'OptBootFile',
-    'OptPXEPathPrefix',
-    'OptUserClassInfo',
-    'OptClientSystemArch',
-    'OptClientNetworkIface',
-    'OptClientMachineID',
-    'OptEtherBoot',
-    'OptVendorSpecificInformation',
+    'Unknown',
+
+    'SubnetMask',
+    'TimezoneOffset',
+    'Router',
+    'TimeServer',
+    'INetNameServer',
+    'DomainNameServer',
+    'LogServer',
+    'QuoteServer',
+    'LPRServer',
+    'Hostname',
+    'DomainName',
+    'BroadcastAddr',
+    'VendorInfo',
+    'RequestedIPAddr',
+    'IPLeaseTime',
+    'DHCPMessageType',
+    'ServerIdentifier',
+    'ParamRequestList',
+    'DHCPMessage',
+    'MaxMessageSize',
+    'RenewalTime',
+    'RebindTime',
+    'VendorClassIdentifier',
+    'TFTPServerName',
+    'BootfileName',
+    'ClientSystemArch',
+    'DNSDomainSearchList',
+    'TFTPServerIP',
+    'PXEPathPrefix',
+    'End',
 ]
 
-#: codec to parse Int8 as OptionCode
-OptionCodeInt = Annotated[OptionCode, Wrap[U8, OptionCode]]
+ByteContent   = Annotated[bytes, GreedyBytes()]
+OptionCodeInt = Annotated[OptionCode, U8]
 
 #** Functions **#
 
-def read_option(ctx: Context, raw: bytes) -> 'Option':
+def pack_option(option: 'Option', ctx: Optional[Context] = None) -> bytes:
     """
-    read and deserialize best option-class to match option content
+    """
+    return OptionHeader(option.opcode, option.pack()).pack(ctx)
 
-    :param ctx: serialization context
-    :param raw: raw bytes to deserialized into an option
-    :return:    option object
+def unpack_option(raw: bytes, ctx: Optional[Context] = None) -> 'Option':
     """
-    # parse option-type/value & retrieve best matching subclass
-    opt     = OptStruct.decode(ctx, raw)
-    oclass  = OPTIONS.get(opt.code, Option)
-    # parse option w/ it's own sub-context
-    subctx = Context()
-    option = oclass.decode(subctx, opt.value)
-    if oclass is Option:
-        oclass.opcode = opt.code
-    return option
-
-def write_option(ctx: Context, option) -> bytes:
     """
-    write and serialize option-class into raw-bytes
-
-    :param ctx: serialization context
-    :param raw: option object to serialize
-    :return:    serialized bytes
-    """
-    # serialize option into bytes
-    subctx  = Context()
-    content = option.encode(subctx)
-    return OptStruct(option.opcode, content).encode(ctx)
+    header = OptionHeader.unpack(raw, ctx)
+    oclass = OPTION_MAP.get(header.opcode, None)
+    oclass = oclass or Unknown.new(header.opcode, len(header.option))
+    return oclass.unpack(header.option)
 
 #** Classes **#
 
-class OptStruct(Struct):
-    code:  OptionCodeInt
-    value: Annotated[bytes, SizedBytes[U8]]
+class OptionHeader(Struct):
+    opcode: OptionCodeInt
+    option: Annotated[bytes, HintedBytes(U8)]
 
-    def __post_init__(self):
-        """warn when value is too long and truncate"""
-        if len(self.value) <= 255:
-            return
-        code       = self.code
-        vlen       = len(self.value)
-        self.value = self.value[:252] + b'...'
-        warn(f'{code!r} value too long {vlen}. truncating!', RuntimeWarning)
+class Option(Struct, DHCPOption):
+    """
+    Abstract Baseclass for DHCPv4 Option Content
+    """
+    opcode: ClassVar[OptionCode] #type: ignore
 
-@dataclass
-class Option(DHCPOption):
-    """DHCPv4 BaseClass Option Definition"""
-    opcode: ClassVar[OptionCode] = OptionCode.OptionPad
-
-class OptionList(DHCPOptionList):
-    """DHCPv4 DHCPOptionList Implementation"""
-    pass
-
-### SubClasses
-
-class OptEnd(Option):
-    opcode = OptionCode.End
-
-class OptHostName(Option):
-    opcode = OptionCode.HostName
-
-class _Ipv4Option(Option):
+class _IPv4ListOption(Option):
+    """
+    BaseClass for AddressList Options
+    """
     opcode: ClassVar[OptionCode]
-    value:  IPv4
+    ips:    Annotated[List[IPv4], GreedyList(IPv4)]
 
-class OptServerId(_Ipv4Option):
-    opcode = OptionCode.ServerIdentifier
+class SubnetMask(Option):
+    """
+    SubnetMask (1) - The Subnet Mask to Apply for an Ipv4 Address Assignment
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.SubnetMask
+    ip:     IPv4
 
-class OptSubnetMask(_Ipv4Option):
-    opcode = OptionCode.SubnetMask
+class TimezoneOffset(Option):
+    """
+    TimezoneOffset (2) - Informs Client of Network Timezone Offset
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.TimeOffset
+    offset: I32
 
-class OptBroadcast(_Ipv4Option):
-    opcode = OptionCode.BroadcastAddress
+class Router(_IPv4ListOption):
+    """
+    Router (3) - IPv4 Router/Gateway Addresses
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.Router
 
-class OptRouter(_Ipv4Option):
-    opcode = OptionCode.Router
+class TimeServer(_IPv4ListOption):
+    """
+    TimeServer (4) - Network TimeServers
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.TimeServer
 
-class OptDNS(_Ipv4Option):
-    opcode = OptionCode.DomainNameServer
-    value: Annotated[List[Ipv4Type], GreedyList[IPv4]]
+class INetNameServer(_IPv4ListOption):
+    """
+    NameServer (5) - IEN 116 Name Servers (Deprecated/Legacy)
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.NameServer
 
-class OptRequestedAddr(_Ipv4Option):
-    opcode = OptionCode.RequestedIPAddress
+class DomainNameServer(_IPv4ListOption):
+    """
+    DomainNameServer (6) - Name Server Addresses (DNS)
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.DomainNameServer
 
-class OptDomainName(Option):
-    opcode = OptionCode.DomainName
-    value: Annotated[str, GreedyBytes]
+class LogServer(_IPv4ListOption):
+    """
+    LogServer (7) - MIT-LCS UDP log servers
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.LogServer
 
-class OptDomainSearchList(Option):
-    opcode = OptionCode.DNSDomainSearchList
-    value: Annotated[List[bytes], GreedyList[Domain]]
+class QuoteServer(_IPv4ListOption):
+    """
+    CookieServer (8) - Quote of The Day Server (RFC 865)
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.QuoteServer
 
-class OptStatusCode(Option):
-    opcode = OptionCode.StatusCode
-    value:   Annotated[StatusCode, Wrap[U8, StatusCode]]
-    message: GreedyBytes
+class LPRServer(_IPv4ListOption):
+    """
+    LPRServer (9) - Line Printer Server (RFC 1179)
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.LPRServer
 
-class OptIPLeaseTime(Option):
-    opcode = OptionCode.IPAddressLeaseTime
-    value: Annotated[SupportsInt, Wrap[U32, Seconds]]
+class Hostname(Option):
+    """
+    Hostname (12) - Client Hostname Assignment
+    """
+    opcode:   ClassVar[OptionCode] = OptionCode.HostName
+    hostname: ByteContent
 
-class OptRenwalTime(Option):
-    opcode = OptionCode.RenewTimeValue
-    value: Annotated[SupportsInt, Wrap[U32, Seconds]]
+class DomainName(Option):
+    """
+    DomainName (15) - DNS Resolution Domain for Client
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.DomainName
+    domain: ByteContent
 
-class OptRebindTime(Option):
-    opcode = OptionCode.RenewTimeValue
-    value: Annotated[SupportsInt, Wrap[U32, Seconds]]
+class BroadcastAddr(Option):
+    """
+    BroadCastAddress (28) - Specifies Network Broadcast Address
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.BroadcastAddress
+    addr:   IPv4
 
-class OptMessageType(Option):
-    opcode = OptionCode.DHCPMessageType
-    value: Annotated[MessageType, Wrap[U8, MessageType]]
+class VendorInfo(Option):
+    """
+    Vendor Specific Information (43) - Arbitrary Vendor Data over DHCP
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.BroadcastAddress
+    info:   ByteContent
 
-class OptParamRequestList(Option):
-    opcode = OptionCode.ParameterRequestList
-    value: Annotated[OptionCode, GreedyList[OptionCodeInt]]
+class RequestedIPAddr(Option):
+    """
+    Requested IP Address (50) - Client Requested IP Address
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.RequestedIPAddress
+    ip:     IPv4
 
-class OptMaxMessageSize(Option):
-    opcode = OptionCode.MaximumDHCPMessageSize
-    value: U16
+class IPLeaseTime(Option):
+    """
+    IPLeaseTime (51) - Client Requested/Server Assigned Lease Time
+    """
+    opcode:  ClassVar[OptionCode] = OptionCode.IPAddressLeaseTime
+    seconds: U32
 
-class OptClassIdentifier(Option):
-    opcode = OptionCode.ClassIdentifier
+class DHCPMessageType(Option):
+    """
+    DHCP Message Type (53) - Declares DHCP Message Type
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.DHCPMessageType
+    mtype:  Annotated[MessageType, U8]
 
-class OptTFTPServerName(Option):
-    opcode = OptionCode.TFTPServerName
+class ServerIdentifier(Option):
+    """
+    DHCP Server Identifier (54) - Identifies DHCP Server Subject
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.ServerIdentifier
+    ip:     IPv4
 
-class OptTFTPServerIP(_Ipv4Option):
-    opcode = OptionCode.TFTPServerIPAddress
+class ParamRequestList(Option):
+    """
+    DHCP Parameter Request List (55) - DHCP Request for Specified Options
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.ParameterRequestList
+    params: Annotated[List[OptionCode], GreedyList(OptionCodeInt)]
 
-class OptBootFile(Option):
-    opcode = OptionCode.BootfileName
+class DHCPMessage(Option):
+    """
+    Server Message (56) - DCHP Message on Server Error / Rejection
+    """
+    opcode:  ClassVar[OptionCode] = OptionCode.Message
+    message: ByteContent
 
-class OptPXEPathPrefix(Option):
-    opcode = OptionCode.PXELinuxPathPrefix
+class MaxMessageSize(Option):
+    """
+    DHCP Max Message Size (57) - Maximum Length Packet Sender will Accept
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.Message
+    size:   U16
 
-class OptUserClassInfo(Option):
-    opcode = OptionCode.UserClassInformation
+class RenewalTime(Option):
+    """
+    DHCP Renewal Time (58) - Client Address Renewal Interval
+    """
+    opcode:  ClassVar[OptionCode] = OptionCode.RenewTimeValue
+    seconds: U32
 
-class OptClientSystemArch(Option):
-    opcode = OptionCode.ClientSystemArchitectureType
-    value: Annotated[List[Arch], GreedyList[Wrap[U16, Arch]]]
+class RebindTime(Option):
+    """
+    DHCP Rebind Time (59) - Client Address Rebind Interval
+    """
+    opcode:  ClassVar[OptionCode] = OptionCode.RebindingTimeValue
+    seconds: U32
 
-class OptClientNetworkIface(Option):
-    opcode = OptionCode.ClientNetworkInterfaceIdentifier
-    value: Const[b'\x01']
-    major: U8
-    minor: U8
+class VendorClassIdentifier(Option):
+    """
+    Vendor Class Identifier (60) - Optionally Identify Vendor Type and Config
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.ClassIdentifier
+    size:   U16
 
-class OptClientMachineID(Option):
-    opcode = OptionCode.ClientMachineIdentifier
-    value:  GreedyBytes
+class TFTPServerName(Option):
+    """
+    TFTP Server Name (66) - TFTP Server Option when `sname` field is reserved
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.TFTPServerName
+    name:   ByteContent
 
-class OptEtherBoot(Option):
-    opcode = OptionCode.Etherboot
+class BootfileName(Option):
+    """
+    Bootfile Name (67) - Bootfile Assignment with `file` field is reserved
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.BootfileName
+    name:   ByteContent
 
-class OptVendorSpecificInformation(Option):
-    opcode = OptionCode.VendorSpecificInformation
+class ClientSystemArch(Option):
+    """
+    Client System Architecture (93) - Declare PXE Client Arch (RFC 4578)
+    """
+    opcode:  ClassVar[OptionCode] = OptionCode.ClientSystemArchitectureType
+    domains: Annotated[List[Arch], GreedyList(Annotated[Arch, U16])]
+
+class DNSDomainSearchList(Option):
+    """
+    DNS Domain Search List (119) - List of DNS Search Domain Suffixes (RFC 3397)
+    """
+    opcode:  ClassVar[OptionCode] = OptionCode.DNSDomainSearchList
+    domains: Annotated[List[bytes], GreedyList(Domain)]
+
+class TFTPServerIP(Option):
+    """
+    TFTP Server IP Address (128) - Commonly used for TFTP Server IP Address
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.TFTPServerIPAddress
+    ip:     ByteContent
+
+class PXEPathPrefix(Option):
+    """
+    PXE Server Path Prefix (210) - PXELINUX TFTP Path Prefix (RFC 5071)
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.TFTPServerIPAddress
+    prefix: ByteContent
+
+class End(Option):
+    """
+    END (255) - Indicates End of DHCP Options List
+    """
+    opcode: ClassVar[OptionCode] = OptionCode.End
+
+class Unknown:
+    """
+    Mock Option Object for Unknown/Unsupported DHCP Content Types
+    """
+    __slots__ = ('data', )
+
+    opcode: ClassVar[OptionCode]
+    size:   ClassVar[int]
+
+    def __init__(self, data: bytes):
+        self.data = data
+
+    def __repr__(self) -> str:
+        return f'Unknown(opcode={self.opcode!r}, data=0x{self.data.hex()})'
+
+    def pack(self, ctx: Optional[Context] = None) -> bytes:
+        ctx = ctx or Context()
+        return ctx.track_bytes(self.data)
+
+    @classmethod
+    def unpack(cls, raw: bytes, ctx: Optional[Context] = None) -> Self:
+        ctx = ctx or Context()
+        return cls(ctx.slice(raw, cls.size))
+
+    @classmethod
+    @lru_cache(maxsize=None)
+    def new(cls, opcode: OptionCode, size: int) -> Type:
+        return type('Unknown', (cls, ), {'opcode': opcode, 'size': size})
 
 #** Init **#
 
-#: map of option-codes to option-subclasses
-OPTIONS = {
-    value.opcode:value
-    for value in globals().values()
-    if isinstance(value, type) and issubclass(value, Option)
-}
+#: cheeky way of collecting all option types into map based on their OptionCode
+OPTION_MAP = {v.opcode:v
+    for v in globals().values()
+    if isinstance(v, type) and issubclass(v, Option) and hasattr(v, 'opcode')}
