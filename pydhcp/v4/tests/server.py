@@ -1,4 +1,5 @@
 """
+DHCPv4 Server In-Memory Backend UnitTests
 """
 import time
 import random
@@ -7,11 +8,11 @@ from datetime import timedelta
 from ipaddress import IPv4Address, IPv4Network
 from unittest import TestCase
 
+from ..  import *
+from ... import StatusCode
+
 from ..client import new_message_id
-from ..message import Message
-from ..options import *
 from ..server.backend import Address, MemoryBackend
-from ...enum import StatusCode
 
 #** Variables **#
 __all__ = ['MemoryTests']
@@ -48,7 +49,6 @@ class MemoryTests(TestCase):
         """
         id     = new_message_id()
         offer  = IPv4Address('192.168.1.2')
-        server = IPv4Address('0.0.0.0')
         # make initial DISCOVER request and recieve assignment
         with self.subTest('discover'):
             request  = Message.discover(id, HWADDR)
@@ -67,7 +67,7 @@ class MemoryTests(TestCase):
             self.assertEqual(lease, IPLeaseTime(1))
         # ensure assignment remains the same with REQUEST
         with self.subTest('request'):
-            request  = Message.request(id, HWADDR, server, offer)
+            request  = Message.request(id, HWADDR, offer)
             response = self.backend.assign(ADDR, request)
             if response is None:
                 return self.assertTrue(False, 'response is none')
@@ -117,6 +117,18 @@ class MemoryTests(TestCase):
             response = self.backend.assign(ADDR, request)
             self.assertEqual(response.id, request.id)
             self.assertEqual(response.your_addr, IPv4Address('192.168.1.2'))
+
+    def test_static(self):
+        """
+        test static assignment override
+        """
+        static = IPv4Address('192.168.1.3')
+        self.backend.set_static(HWADDR, static)
+        id       = new_message_id()
+        request  = Message.discover(id, HWADDR)
+        response = self.backend.assign(ADDR, request)
+        self.assertEqual(response.id, request.id)
+        self.assertEqual(response.your_addr, static)
 
     def test_exhaust(self):
         """

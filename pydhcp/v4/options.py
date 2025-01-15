@@ -11,6 +11,7 @@ from pystructs import (
 
 from ..abc import DHCPOption
 from ..enum import Arch, StatusCode
+
 from .enum import MessageType, OptionCode
 
 #** Variables **#

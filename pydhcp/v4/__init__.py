@@ -17,6 +17,7 @@ __all__ = [
     'NotSupported',
     'AddressInUse',
 
+    'ZeroIp',
     'Message',
 
     'Option',

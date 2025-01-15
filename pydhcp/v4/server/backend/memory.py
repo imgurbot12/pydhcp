@@ -11,10 +11,11 @@ from pyderive import dataclass
 from pyderive.extensions.serde import field
 from pyderive.extensions.validate import BaseModel
 
+from ... import (
+    Message, DHCPStatusCode, DomainNameServer, IPLeaseTime, Router, SubnetMask)
+from .... import StatusCode
+
 from . import Address, Answer, Backend
-from ...message import Message
-from ...options import *
-from ....enum import StatusCode
 
 #** Variables **#
 __all__ = ['MemoryRecord', 'MemoryBackend']
@@ -50,7 +51,7 @@ class MemoryBackend(Backend):
     default_lease: timedelta = field(default_factory=lambda: DEFAULT_LEASE)
     logger:        Logger    = field(default_factory=lambda: getLogger('pydhcp'))
 
-    static:  Dict[str, MemoryRecord] = field(default_factory=dict)
+    static:  Dict[str, MemoryRecord] = field(init=False, default_factory=dict)
     records: Dict[str, Record]       = field(init=False, default_factory=dict)
     lock:    Lock                    = field(init=False, default_factory=Lock)
 
@@ -59,6 +60,19 @@ class MemoryBackend(Backend):
 
     def __post_init__(self):
         self.addresses = self.network.hosts()
+
+    def set_static(self, hwaddr: bytes, ipaddr: IPv4Address, **settings):
+        """
+        assign static address within configured dhcp network
+
+        :param hwaddr:   hardware-address (mac) assigned to dhcp
+        :param ipaddr:   ip-address to staticly assign to mac
+        :param settings: additional settings for static assignment
+        """
+        if ipaddr not in self.network:
+            raise ValueError(f'{ipaddr} not within {self.network}')
+        ipv4 = IPv4Interface(f'{ipaddr}/{self.network.netmask}')
+        self.static[hwaddr.hex()] = MemoryRecord(ipv4, **settings)
 
     def reclaim_all(self):
         """
@@ -107,10 +121,12 @@ class MemoryBackend(Backend):
         # retrieve first available in reclaimed or next in hostlist
         if self.reclaimed:
             return self.reclaimed.pop(0)
-        # retrieve next ip in host-list (skipping reserved gateway)
+        # retrieve next ip in host-list (skipping reserved ips)
         try:
-            ipaddr = None
-            while ipaddr is None or ipaddr == self.gateway:
+            ipaddr    = None
+            reserved  = {r.ipaddr.ip for r in self.static.values()}
+            reserved |= set([self.gateway, *self.dns])
+            while ipaddr is None or ipaddr in reserved:
                 ipaddr = next(self.addresses)
             return IPv4Interface(f'{ipaddr}/{self.network.netmask}')
         except StopIteration:
@@ -126,22 +142,25 @@ class MemoryBackend(Backend):
         """
         addr   = f'{address[0]}:{address[1]}'
         hwaddr = request.client_hw.hex()
-        # get next ip-address available
-        ipaddr = self.next_ip(request)
-        if ipaddr is None:
-            self.logger.error(f'{addr} | network out of ip addresses!')
-            return request.reply([
-                DHCPStatusCode(StatusCode.NoAddrsAvail, b'all addresses in use')
-            ])
+        record = self.static.get(hwaddr)
+        # get next ip-address available (if not statically assigned)
+        if record is None:
+            ipaddr = self.next_ip(request)
+            if ipaddr is None:
+                self.logger.error(f'{addr} | network out of ip addresses!')
+                return request.reply([
+                    DHCPStatusCode(
+                        value=StatusCode.NoAddrsAvail,
+                        message=b'all addresses in use')])
+            record = MemoryRecord(ipaddr)
         # build reply with dns/subnet/gateway assignments
-        record   = self.static.get(hwaddr) or MemoryRecord(ipaddr)
         lease    = record.lease or self.default_lease
         response = request.reply(
-            your_addr=ipaddr.ip,
+            your_addr=record.ipaddr.ip,
             options=[
                 DomainNameServer(record.dns or self.dns),
                 Router([record.gateway or self.gateway]),
-                SubnetMask(ipaddr.netmask),
+                SubnetMask(record.ipaddr.netmask),
                 IPLeaseTime(int(lease.total_seconds()))
             ]
         )

@@ -14,7 +14,7 @@ from .enum import MessageType, OpCode, OptionCode
 from .options import *
 
 #** Variables **#
-__all__ = ['Message']
+__all__ = ['ZeroIp', 'Message']
 
 #: pre-converted default ip-address for dhcpv4 packet
 ZeroIp = IPv4Address('0.0.0.0')
@@ -147,7 +147,6 @@ class Message:
     def request(cls,
         id:      int,
         hwaddr:  bytes,
-        server:  IPv4Address,
         ipaddr:  IPv4Address,
         options: OptionParam = None,
         **kwargs,
@@ -170,7 +169,6 @@ class Message:
             client_hw=hwaddr,
             options=OptionList([
                 DHCPMessageType(MessageType.Request),
-                ServerIdentifier(server),
                 RequestedIPAddr(ipaddr),
                 ParamRequestList([
                     OptionCode.SubnetMask,

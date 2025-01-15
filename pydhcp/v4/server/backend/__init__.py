@@ -11,7 +11,10 @@ from ... import Message
 #** Variables **#
 __all__ = [
     'Address',
+    'Answer',
     'Backend',
+
+    'CacheBackend',
 
     'MemoryRecord',
     'MemoryBackend',
@@ -81,5 +84,6 @@ class Backend(Protocol):
         raise NotImplementedError
 
 #** Imports **#
+from .cache import *
 from .memory import *
 from .pxe import *
