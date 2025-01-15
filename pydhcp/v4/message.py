@@ -2,14 +2,15 @@
 
 """
 from ipaddress import IPv4Address
-from typing import List, Optional, Union, cast
+from typing import List, Optional, Sequence, Union, cast
 from typing_extensions import Annotated, Self
 
 from pyderive import dataclass
 from pystructs import U16, U32, U8, Const, Context, IPv4, StaticBytes, Struct
 
 from ..abc import OptionList
-from .enum import MessageType, OpCode, HwType, OptionCode
+from ..enum import HwType
+from .enum import MessageType, OpCode, OptionCode
 from .options import *
 
 #** Variables **#
@@ -20,6 +21,9 @@ ZeroIp = IPv4Address('0.0.0.0')
 
 #: magic cookie to include in DHCP message
 MAGIC_COOKIE = bytes((0x63, 0x82, 0x53, 0x63))
+
+OptionListv4 = OptionList[Option]
+OptionParam  = Union[OptionListv4, Sequence[Option], None]
 
 #** Classes **#
 
@@ -49,7 +53,7 @@ class Message:
     op:           OpCode
     id:           int
     client_hw:    bytes
-    options:      OptionList[Option]
+    options:      OptionListv4
     hw_type:      HwType      = HwType.Ethernet
     hops:         int         = 0
     seconds:      int         = 0
@@ -79,6 +83,12 @@ class Message:
         option = self.options.get(RequestedIPAddr)
         return option.ip if option else None
 
+    def subnet_mask(self) -> Optional[IPv4Address]:
+        """
+        """
+        option = self.options.get(SubnetMask)
+        return option.mask if option else None
+
     def broadcast_address(self) -> Optional[IPv4Address]:
         """
         """
@@ -90,6 +100,104 @@ class Message:
         """
         option = self.options.get(ServerIdentifier)
         return option.ip if option else None
+
+    @classmethod
+    def discover(cls,
+        id:      int,
+        hwaddr:  bytes,
+        ipaddr:  Optional[IPv4Address] = None,
+        options: OptionParam           = None,
+        **kwargs,
+    ) -> 'Message':
+        """
+        DHCP DISCOVER Message Constructor
+
+        :param id:      transaction-id
+        :param hwaddr:  client hardware address
+        :param ipaddr:  requested dhcp ip-address
+        :param options: additional message options
+        :param kwargs:  additional message kwargs
+        :return:        new dhcp discover message
+        """
+        ops: Sequence[Option] = options or []
+        message = Message(
+            op=OpCode.BootRequest,
+            id=id,
+            client_hw=hwaddr,
+            options=OptionList([
+                DHCPMessageType(MessageType.Discover),
+                ParamRequestList([
+                    OptionCode.SubnetMask,
+                    OptionCode.BroadcastAddress,
+                    OptionCode.TimeOffset,
+                    OptionCode.Router,
+                    OptionCode.DomainName,
+                    OptionCode.DomainNameServer,
+                    OptionCode.HostName,
+                ]),
+                *ops
+            ]),
+            **kwargs
+        )
+        if ipaddr is not None:
+            message.options.insert(1, RequestedIPAddr(ipaddr))
+        return message
+
+    @classmethod
+    def request(cls,
+        id:      int,
+        hwaddr:  bytes,
+        server:  IPv4Address,
+        ipaddr:  IPv4Address,
+        options: OptionParam = None,
+        **kwargs,
+    ) -> 'Message':
+        """
+        DHCP REQUEST Message Constructor
+
+        :param id:      transaction-id
+        :param hwaddr:  client hardware address
+        :param server:  dhcp server address for request
+        :param ipaddr:  requested dhcp ip-address
+        :param options: additional message options
+        :param kwargs:  additional message kwargs
+        :return:        new dhcp request message
+        """
+        ops: Sequence[Option] = options or []
+        return Message(
+            op=OpCode.BootRequest,
+            id=id,
+            client_hw=hwaddr,
+            options=OptionList([
+                DHCPMessageType(MessageType.Request),
+                ServerIdentifier(server),
+                RequestedIPAddr(ipaddr),
+                ParamRequestList([
+                    OptionCode.SubnetMask,
+                    OptionCode.BroadcastAddress,
+                    OptionCode.TimeOffset,
+                    OptionCode.Router,
+                    OptionCode.DomainName,
+                    OptionCode.DomainNameServer,
+                    OptionCode.HostName,
+                ]),
+                *ops,
+            ]),
+            **kwargs,
+        )
+
+    def reply(self, options: OptionParam = None, **kwargs) -> 'Message':
+        """
+        """
+        ops: OptionListv4 = OptionList(options or [])
+        return Message(
+            op=OpCode.BootReply,
+            id=self.id,
+            client_hw=self.client_hw,
+            hw_type=self.hw_type,
+            options=ops,
+            **kwargs
+        )
 
     def pack(self, ctx: Optional[Context] = None) -> bytes:
         """
@@ -123,7 +231,7 @@ class Message:
         """
         ctx     = ctx or Context()
         header  = MessageHeader.unpack(raw, ctx)
-        options = OptionList()
+        options = []
         while raw[ctx.index] not in (0, OptionCode.End):
             option = unpack_option(raw, ctx)
             options.append(option)
@@ -131,7 +239,7 @@ class Message:
             op=header.opcode,
             id=header.message_id,
             client_hw=header.hw_addr,
-            options=options,
+            options=OptionList(options),
             hw_type=header.hw_type,
             hops=header.hops,
             seconds=header.seconds,

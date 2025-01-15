@@ -9,8 +9,9 @@ from pystructs import (
     I32, U16, U32, U8, Context, Domain, GreedyBytes,
     GreedyList, HintedBytes, IPv4, Struct)
 
-from .enum import Arch, MessageType, OptionCode
 from ..abc import DHCPOption
+from ..enum import Arch, StatusCode
+from .enum import MessageType, OptionCode
 
 #** Variables **#
 __all__ = [
@@ -44,6 +45,7 @@ __all__ = [
     'RebindTime',
     'VendorClassIdentifier',
     'TFTPServerName',
+    'DHCPStatusCode',
     'BootfileName',
     'ClientSystemArch',
     'DNSDomainSearchList',
@@ -94,7 +96,7 @@ class SubnetMask(Option):
     SubnetMask (1) - The Subnet Mask to Apply for an Ipv4 Address Assignment
     """
     opcode: ClassVar[OptionCode] = OptionCode.SubnetMask
-    ip:     IPv4
+    mask:   IPv4
 
 class TimezoneOffset(Option):
     """
@@ -170,7 +172,7 @@ class VendorInfo(Option):
     """
     Vendor Specific Information (43) - Arbitrary Vendor Data over DHCP
     """
-    opcode: ClassVar[OptionCode] = OptionCode.BroadcastAddress
+    opcode: ClassVar[OptionCode] = OptionCode.VendorSpecificInformation
     info:   ByteContent
 
 class RequestedIPAddr(Option):
@@ -241,7 +243,7 @@ class VendorClassIdentifier(Option):
     Vendor Class Identifier (60) - Optionally Identify Vendor Type and Config
     """
     opcode: ClassVar[OptionCode] = OptionCode.ClassIdentifier
-    size:   U16
+    vendor: ByteContent
 
 class TFTPServerName(Option):
     """
@@ -261,8 +263,8 @@ class ClientSystemArch(Option):
     """
     Client System Architecture (93) - Declare PXE Client Arch (RFC 4578)
     """
-    opcode:  ClassVar[OptionCode] = OptionCode.ClientSystemArchitectureType
-    domains: Annotated[List[Arch], GreedyList(Annotated[Arch, U16])]
+    opcode: ClassVar[OptionCode] = OptionCode.ClientSystemArchitectureType
+    arches: Annotated[List[Arch], GreedyList(Annotated[Arch, U16])]
 
 class DNSDomainSearchList(Option):
     """
@@ -277,6 +279,14 @@ class TFTPServerIP(Option):
     """
     opcode: ClassVar[OptionCode] = OptionCode.TFTPServerIPAddress
     ip:     ByteContent
+
+class DHCPStatusCode(Option):
+    """
+    DHCP Status Code (151) - DHCP Server Response Status Code (RFC 6926)
+    """
+    opcode:  ClassVar[OptionCode] = OptionCode.StatusCode
+    value:   Annotated[StatusCode, U8]
+    message: Annotated[bytes, GreedyBytes()]
 
 class PXEPathPrefix(Option):
     """

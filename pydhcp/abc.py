@@ -5,7 +5,7 @@ from abc import ABC
 from enum import IntEnum
 from typing import (
     Any, ClassVar, Generic, Iterable, Iterator, KeysView,
-    List, Optional, Set, Type, TypeVar, ValuesView, cast, overload)
+    List, Optional, Sequence, Set, Type, TypeVar, ValuesView, cast, overload)
 
 #** Variables **#
 __all__ = ['DHCPOption', 'OptionList']
@@ -18,14 +18,15 @@ T = TypeVar('T', bound='DHCPOption')
 class DHCPOption(ABC):
     opcode: ClassVar[IntEnum]
 
-class OptionList(Generic[O]):
+class OptionList(Sequence[O], Generic[O]):
     """
     Hybrid Between Dictionary/List for Quick DHCP Option Selection
     """
 
-    def __init__(self, data: Optional[List[O]] = None):
-        self.data:    List[O]  = data or []
+    def __init__(self, data: Sequence[O] = ()):
+        self.data:    List[O]  = []
         self.opcodes: Set[int] = set()
+        self.extend(data)
 
     def append(self, value: O) -> None:
         if value.opcode not in self.opcodes:
@@ -74,7 +75,7 @@ class OptionList(Generic[O]):
         ...
 
     def get(self, key, default = None):
-        key = key.opcode if isinstance(key, DHCPOption) else key
+        key = key.opcode if hasattr(key, 'opcode') else key
         return self[key] if key in self.opcodes else default
 
     def keys(self) -> KeysView[int]:
@@ -83,9 +84,12 @@ class OptionList(Generic[O]):
     def values(self) -> ValuesView[O]:
         return cast(ValuesView, iter(self.data))
 
-    def setdefault(self, op: O, /):
-        if op.opcode not in self.opcodes:
-            self.append(op)
+    def setdefault(self, op: O, index: Optional[int] = None):
+        if op.opcode in self.opcodes:
+            return
+        if index is None:
+            return self.append(op)
+        return self.insert(index, op)
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.data!r})'
@@ -93,7 +97,10 @@ class OptionList(Generic[O]):
     def __iter__(self) -> Iterator[O]:
         return iter(self.data)
 
-    def __contains__(self, key: object, /) -> bool:
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __contains__(self, key: object, /) -> bool: #type: ignore
         key = key.opcode if isinstance(key, DHCPOption) else key
         return key in self.opcodes
 
@@ -105,7 +112,7 @@ class OptionList(Generic[O]):
     def __getitem__(self, key: int, /) -> O:
         ...
 
-    def __getitem__(self, key, /):
+    def __getitem__(self, key, /): #type: ignore
         if isinstance(key, slice):
             return self.data.__getitem__(key)
         key = key.opcode if isinstance(key, DHCPOption) else key
