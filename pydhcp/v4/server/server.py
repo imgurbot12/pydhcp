@@ -44,9 +44,12 @@ class Server(BaseSession):
     Extendable Implementation of DHCP Server Session Manager for PyServe
     """
     backend:   Backend
-    address:   IPv4Address
+    server_id: IPv4Address
     broadcast: IPv4Address = field(default_factory=lambda: BROADCAST)
     logger:    Logger      = field(default_factory=lambda: getLogger('pydhcp'))
+
+    def __post_init__(self):
+        setattr(self.backend, 'logger', self.logger)
 
     ### DHCP Handlers
 
@@ -58,9 +61,9 @@ class Server(BaseSession):
         if answer is None:
             return
         response = answer.message
-        response.server_addr = assign_zero(response.server_addr, self.address)
+        response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.insert(0, DHCPMessageType(MessageType.Offer))
-        response.options.insert(1, ServerIdentifier(self.address))
+        response.options.insert(1, ServerIdentifier(self.server_id))
         return response
 
     def process_request(self, request: Message) -> Optional[Message]:
@@ -72,9 +75,9 @@ class Server(BaseSession):
             return
         # ensure required response components are present
         response = answer.message
-        response.server_addr = assign_zero(response.server_addr, self.address)
+        response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.setdefault(DHCPMessageType(MessageType.Ack), 0)
-        response.options.setdefault(ServerIdentifier(self.address), 1)
+        response.options.setdefault(ServerIdentifier(self.server_id), 1)
         # ensure assignment matches request
         netmask  = request.subnet_mask()
         req_addr = request.requested_address()
@@ -90,9 +93,9 @@ class Server(BaseSession):
         """
         answer   = self.backend.decline(self.client, request)
         response = answer.message if answer else request.reply()
-        response.server_addr = assign_zero(response.server_addr, self.address)
+        response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.setdefault(DHCPMessageType(MessageType.Nak), 0)
-        response.options.setdefault(ServerIdentifier(self.address), 1)
+        response.options.setdefault(ServerIdentifier(self.server_id), 1)
         return response
 
     def process_release(self, request: Message) -> Optional[Message]:
@@ -101,9 +104,9 @@ class Server(BaseSession):
         """
         answer   = self.backend.release(self.client, request)
         response = answer.message if answer else request.reply()
-        response.server_addr = assign_zero(response.server_addr, self.address)
+        response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.setdefault(DHCPMessageType(MessageType.Ack), 0)
-        response.options.setdefault(ServerIdentifier(self.address), 1)
+        response.options.setdefault(ServerIdentifier(self.server_id), 1)
         return response
 
     def process_inform(self, request: Message) -> Optional[Message]:

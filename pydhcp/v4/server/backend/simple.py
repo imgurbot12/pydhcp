@@ -77,8 +77,8 @@ class SimpleBackend(Backend, Protocol):
         lease = int(assign.lease.total_seconds())
         self.logger.info(
             f'{address[0]} | {mac} -> ip={assign.ipv4} '
-            f'gw={[str(ip) for ip in assign.routers]} '
-            f'dns={[str(ip) for ip in assign.dns]} '
+            f'gw={",".join(str(ip) for ip in assign.routers)} '
+            f'dns={",".join(str(ip) for ip in assign.dns)} '
             f'lease={lease} source={assign.source}'
         )
         return request.reply(
