@@ -1,5 +1,5 @@
 """
-
+DHCPv4 Message Object Implementation
 """
 from ipaddress import IPv4Address
 from typing import List, Optional, Sequence, Union, cast
@@ -50,6 +50,9 @@ class MessageHeader(Struct):
 
 @dataclass(slots=True)
 class Message:
+    """
+    DHCP Message Object Definition (Request & Response Packet)
+    """
     op:           OpCode
     id:           int
     client_hw:    bytes
@@ -67,36 +70,48 @@ class Message:
 
     def message_type(self) -> Optional[MessageType]:
         """
+        retrieve `MessageType` option value from options (if present)
+
+        :return: assigned packet message-type
         """
         option = self.options.get(DHCPMessageType)
         return option.mtype if option else None
 
     def requested_options(self) -> List[OptionCode]:
         """
+        retrieve `ParamRequestList` option value from options (if present)
+
+        :return: list of requested option-codes
         """
         option = self.options.get(ParamRequestList)
         return option.params if option else []
 
     def requested_address(self) -> Optional[IPv4Address]:
         """
+        retrieve `RequestedIPAddr` option value from options (if present)
+
+        :return: client requested ipv4 address
         """
         option = self.options.get(RequestedIPAddr)
         return option.ip if option else None
 
     def subnet_mask(self) -> Optional[IPv4Address]:
         """
+        retrieve `SubnetMask` option value from options (if present)
         """
         option = self.options.get(SubnetMask)
         return option.mask if option else None
 
     def broadcast_address(self) -> Optional[IPv4Address]:
         """
+        retrieve `BroadcastAddr` option value from options (if present)
         """
         option = self.options.get(BroadcastAddr)
         return option.addr if option else None
 
     def server_identifier(self) -> Optional[IPv4Address]:
         """
+        retrieve `ServerIdentifier` option value from options (if present)
         """
         option = self.options.get(ServerIdentifier)
         return option.ip if option else None
@@ -186,6 +201,11 @@ class Message:
 
     def reply(self, options: OptionParam = None, **kwargs) -> 'Message':
         """
+        generate template `BootReply` Message for current Message request
+
+        :param options: options to pass into generated message
+        :param kwargs:  additional settings for message generation
+        :return:        new generated message reply object
         """
         ops: OptionListv4 = OptionList(options or [])
         return Message(
@@ -199,6 +219,10 @@ class Message:
 
     def pack(self, ctx: Optional[Context] = None) -> bytes:
         """
+        pack message object into serialized bytes
+
+        :param ctx: serialization context object
+        :return:    serialized bytes
         """
         ctx   = ctx or Context()
         data  = bytearray()
@@ -226,6 +250,11 @@ class Message:
     @classmethod
     def unpack(cls, raw: bytes, ctx: Optional[Context] = None) -> Self:
         """
+        unpack serialized bytes into deserialized message object
+
+        :param raw: raw byte buffer
+        :param ctx: deserialization context object
+        :return:    unpacked message object
         """
         ctx     = ctx or Context()
         header  = MessageHeader.unpack(raw, ctx)

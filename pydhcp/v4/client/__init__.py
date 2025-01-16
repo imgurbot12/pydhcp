@@ -28,6 +28,9 @@ def new_message_id() -> int:
 #** Classes **#
 
 class IPAssignment(NamedTuple):
+    """
+    Simplified DHCP Option Results from DHCPv4 Server Ack
+    """
     message:    Message
     lease:      timedelta
     ipv4:       IPv4Address
