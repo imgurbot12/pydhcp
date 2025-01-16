@@ -140,7 +140,7 @@ class Server(BaseSession):
             self.logger.error(f'{self.addr_str} | no response given.')
             self.writer.close()
             return
-        data = response.pack()
+        data = response.pack().rjust(300, b'\x00')
         for host in (request.gateway_addr, request.client_addr,
             IPv4Address(self.client.host), self.broadcast):
             if host == ZeroIp:

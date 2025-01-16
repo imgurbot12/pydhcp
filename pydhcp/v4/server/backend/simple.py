@@ -85,6 +85,7 @@ class SimpleBackend(Backend, Protocol):
             your_addr=assign.ipv4.ip,
             options=[
                 DomainNameServer(assign.dns),
+                DNSDomainSearchList(assign.dns_search),
                 Router(assign.routers),
                 SubnetMask(assign.ipv4.netmask),
                 IPLeaseTime(lease),
