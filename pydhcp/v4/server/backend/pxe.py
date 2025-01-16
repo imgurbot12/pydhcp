@@ -10,11 +10,9 @@ from typing_extensions import Annotated
 from pyderive import dataclass, field
 from pyderive.extensions.validate import BaseModel, Validator
 
-from ....enum import Arch
-from ...enum import OptionCode
-from ...message import Message
-from ...options import *
 from . import Address, Answer, Backend
+from ... import *
+from .... import Arch
 
 #** Variables **#
 __all__ = ['PxeTftpConfig', 'PxeDynConfig', 'PxeConfig', 'PXEBackend']

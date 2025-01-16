@@ -15,14 +15,15 @@ __all__ = [
     'Backend',
 
     'CacheBackend',
-
-    'MemoryRecord',
     'MemoryBackend',
 
     'PxeTftpConfig',
     'PxeDynConfig',
     'PxeConfig',
     'PXEBackend',
+
+    'SimpleAnswer',
+    'SimpleBackend',
 ]
 
 #** Classes **#
@@ -87,3 +88,4 @@ class Backend(Protocol):
 from .cache import *
 from .memory import *
 from .pxe import *
+from .simple import *
