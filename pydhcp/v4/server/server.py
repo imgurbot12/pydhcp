@@ -141,14 +141,13 @@ class Server(BaseSession):
             self.writer.close()
             return
         data = response.pack().rjust(300, b'\x00')
-        for host in (request.gateway_addr, request.client_addr,
-            IPv4Address(self.client.host), self.broadcast):
-            if host == ZeroIp:
-                continue
-            host = str(host)
-            self.logger.debug(
-                f'{self.addr_str} | sent {len(data)} bytes to {host}:{PORT}')
-            self.writer.write(data, addr=(host, PORT))
+        host = assign_zero(request.client_addr, request.gateway_addr)
+        host = assign_zero(host, IPv4Address(self.client.host))
+        host = assign_zero(host, self.broadcast)
+        host = str(host)
+        self.logger.debug(
+            f'{self.addr_str} | sent {len(data)} bytes to {host}:{PORT}')
+        self.writer.write(data, addr=(host, PORT))
 
     def data_recieved(self, data: bytes):
         """
