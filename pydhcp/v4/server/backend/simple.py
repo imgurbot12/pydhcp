@@ -87,7 +87,9 @@ class SimpleBackend(Backend, Protocol):
                 DomainNameServer(assign.dns),
                 Router(assign.routers),
                 SubnetMask(assign.ipv4.netmask),
-                IPLeaseTime(lease)
+                IPLeaseTime(lease),
+                RenewalTime(int(lease * 0.5)), # 1/2 of lease time
+                RebindTime(int(lease * 0.875)) # 7/8 of lease time
             ]
         )
 
