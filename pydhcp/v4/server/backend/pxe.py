@@ -90,9 +90,9 @@ class PXEBackend(Backend):
     """
     source: ClassVar[str] = 'PXE'
 
-    backend: Backend
     config:  PxeConfig
-    logger:  Logger = field(default_factory=lambda: getLogger('pydhcp'))
+    backend: Optional[Backend] = None
+    logger:  Logger            = field(default_factory=lambda: getLogger('pydhcp'))
 
     def get_pxe_config(self, hwaddr: str, request: Message) -> PxeConfig:
         """
@@ -133,23 +133,30 @@ class PXEBackend(Backend):
             config.filename = subcfg.filename or config.filename
         return config
 
-    def pxe(self, address: Address, request: Message) -> Optional[Answer]:
+    def pxe(self,
+        address:  Address,
+        request:  Message,
+        response: Optional[Message] = None,
+    ) -> Optional[Message]:
         """
         DHCP Response and PXE Option Assignment
 
-        :param request: dhcp request message
-        :return:        backend answer (if applicable)
+        :param address:  client address
+        :param request:  dhcp request message
+        :param response: existing dhcp response (if set)
+        :return:         dhcp response (if applicable)
         """
         options = request.requested_options()
         if not any(op in PXE_OPTIONS for op in options):
-            return
+            return response
         # retrieve client information relevant to dynamic assignment
         hwaddr = request.client_hw.hex()
         config = self.get_pxe_config(hwaddr, request)
         # build DHCP options based on configuration
         message  = [f'{address[0]}:{address[1]} | {hwaddr}']
-        response = request.reply([TFTPServerIP(config.ipaddr.packed)])
+        response = response or request.reply()
         response.server_addr = config.ipaddr
+        response.options.append(TFTPServerIP(config.ipaddr.packed))
         message.append(f'-> pxe={str(config.ipaddr)}')
         if config.primary:
             response.boot_file   = config.filename or response.boot_file
@@ -164,16 +171,26 @@ class PXEBackend(Backend):
             message.append(f'file={config.filename.decode()!r}')
             response.options.append(BootfileName(config.filename + b'\x00'))
         self.logger.info(' '.join(message))
-        return Answer(response, self.source)
+        return response
 
     def discover(self, address: Address, request: Message) -> Optional[Answer]:
-        return self.pxe(address, request)
+        answer = self.backend.discover(address, request) \
+            if self.backend else None
+        res, src = answer if answer else (None, self.source)
+        response = self.pxe(address, request, res)
+        return Answer(response, src) if response else None
 
     def request(self, address: Address, request: Message) -> Optional[Answer]:
-        return self.pxe(address, request)
+        answer = self.backend.request(address, request) \
+            if self.backend else None
+        res, src = answer if answer else (None, self.source)
+        response = self.pxe(address, request, res)
+        return Answer(response, src) if response else None
 
     def release(self, address: Address, request: Message) -> Optional[Answer]:
-        return self.backend.release(address, request)
+        if self.backend is not None:
+            return self.backend.release(address, request)
 
     def decline(self, address: Address, request: Message) -> Optional[Answer]:
-        return self.backend.decline(address, request)
+        if self.backend is not None:
+            return self.backend.decline(address, request)

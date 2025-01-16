@@ -26,17 +26,17 @@ class CacheRecord:
     """
     Record Entry for In-Memory Cache
     """
-    answer:     SimpleAnswer
-    expiration: InitVar[timedelta]
-    expires:    datetime = field(init=False)
-    accessed:   datetime = field(init=False)
+    answer:    SimpleAnswer
+    lifetime:  timedelta
+    expires:   datetime = field(init=False)
+    accessed:  datetime = field(init=False)
 
-    def __post_init__(self, expiration: timedelta): #type: ignore
+    def __post_init__(self):
         """
         calculate expiration-time and last-accessed time
         """
         lease = self.answer.lease
-        ttl   = min(lease, expiration)
+        ttl   = min(lease, self.lifetime)
         now   = datetime.now()
         self.expires  = now + ttl
         self.accessed = now
@@ -49,7 +49,9 @@ class CacheRecord:
         if self.expires <= now:
             return True
         self.answer.lease -= now - self.accessed
-        self.accessed      = now
+        if self.answer.lease <= self.lifetime:
+            return True
+        self.accessed = now
         return False
 
 @dataclass(slots=True)
