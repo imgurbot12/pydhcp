@@ -39,4 +39,4 @@ classifiers = [
 Repository = "https://github.com/imgurbot12/pydhcp"
 
 [tool.setuptools.package-data]
-"pystructs3" = ["py.typed"]
+"pydhcp3" = ["py.typed"]
