@@ -26,6 +26,16 @@ BROADCAST = IPv4Address('255.255.255.255')
 
 #** Function **#
 
+def mtype(response: Message) -> str:
+    """
+    retrieve message type string from message object
+
+    :param response: response message object
+    :return:         response message type as string
+    """
+    mtype = response.message_type()
+    return mtype.name.upper() if mtype else 'UNKNOWN'
+
 def assign_zero(original: IPv4Address, new: IPv4Address) -> IPv4Address:
     """
     re-assign ip-address if original is zerod ip-address
@@ -57,6 +67,8 @@ class Server(BaseSession):
         """
         Process DHCP DISCOVER Message
         """
+        self.logger.debug('< DISCOVER'
+            f' mac={request.client_hw.hex()} ip={request.requested_address()}')
         answer = self.backend.discover(self.client, request)
         if answer is None:
             return
@@ -64,12 +76,15 @@ class Server(BaseSession):
         response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.insert(0, DHCPMessageType(MessageType.Offer))
         response.options.insert(1, ServerIdentifier(self.server_id))
+        self.logger.debug(f'> {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
     def process_request(self, request: Message) -> Optional[Message]:
         """
         Process DHCP REQUEST Message
         """
+        self.logger.debug('< REQUEST'
+            f' mac={request.client_hw.hex()} ip={request.requested_address()}')
         answer = self.backend.request(self.client, request)
         if answer is None:
             return
@@ -85,28 +100,35 @@ class Server(BaseSession):
         if (req_addr and req_addr != response.your_addr) \
             or (req_cast and req_cast != netmask):
             response.options.insert(0, DHCPMessageType(MessageType.Nak))
+        self.logger.debug(f'> {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
     def process_decline(self, request: Message) -> Optional[Message]:
         """
         Process DHCP DECLINE Message
         """
+        self.logger.debug('< DECLINE'
+            f' mac={request.client_hw.hex()} ip={request.requested_address()}')
         answer   = self.backend.decline(self.client, request)
         response = answer.message if answer else request.reply()
         response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.setdefault(DHCPMessageType(MessageType.Nak), 0)
         response.options.setdefault(ServerIdentifier(self.server_id), 1)
+        self.logger.debug(f'> {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
     def process_release(self, request: Message) -> Optional[Message]:
         """
         Process DHCP RELEASE Message
         """
+        self.logger.debug('< RELEASE'
+            f' mac={request.client_hw.hex()} ip={request.requested_address()}')
         answer   = self.backend.release(self.client, request)
         response = answer.message if answer else request.reply()
         response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.setdefault(DHCPMessageType(MessageType.Ack), 0)
         response.options.setdefault(ServerIdentifier(self.server_id), 1)
+        self.logger.debug(f'> {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
     def process_inform(self, request: Message) -> Optional[Message]:
@@ -146,14 +168,14 @@ class Server(BaseSession):
         host = assign_zero(host, self.broadcast)
         host = str(host)
         self.logger.debug(
-            f'{self.addr_str} | sent {len(data)} bytes to {host}:{PORT}')
+            f'{self.addr_str} > sent {len(data)} bytes to {host}:{PORT}')
         self.writer.write(data, addr=(host, PORT))
 
     def data_recieved(self, data: bytes):
         """
         parse raw packet-data and process request
         """
-        self.logger.debug(f'{self.addr_str} | recieved {len(data)} bytes')
+        self.logger.debug(f'{self.addr_str} < recieved {len(data)} bytes')
         request      = Message.unpack(data)
         message_type = request.message_type()
         if message_type is None:
