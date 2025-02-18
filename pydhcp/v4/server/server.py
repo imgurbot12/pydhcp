@@ -67,7 +67,7 @@ class Server(BaseSession):
         """
         Process DHCP DISCOVER Message
         """
-        self.logger.debug('< DISCOVER'
+        self.logger.debug(f'{self.addr_str} < DISCOVER'
             f' mac={request.client_hw.hex()} ip={request.requested_address()}')
         answer = self.backend.discover(self.client, request)
         if answer is None:
@@ -76,14 +76,15 @@ class Server(BaseSession):
         response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.insert(0, DHCPMessageType(MessageType.Offer))
         response.options.insert(1, ServerIdentifier(self.server_id))
-        self.logger.debug(f'> {mtype(response)} mac={request.client_hw.hex()}')
+        self.logger.debug(self.addr_str +
+            f' > {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
     def process_request(self, request: Message) -> Optional[Message]:
         """
         Process DHCP REQUEST Message
         """
-        self.logger.debug('< REQUEST'
+        self.logger.debug(f'{self.addr_str} < REQUEST'
             f' mac={request.client_hw.hex()} ip={request.requested_address()}')
         answer = self.backend.request(self.client, request)
         if answer is None:
@@ -100,35 +101,38 @@ class Server(BaseSession):
         if (req_addr and req_addr != response.your_addr) \
             or (req_cast and req_cast != netmask):
             response.options.insert(0, DHCPMessageType(MessageType.Nak))
-        self.logger.debug(f'> {mtype(response)} mac={request.client_hw.hex()}')
+        self.logger.debug(self.addr_str +
+            f' > {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
     def process_decline(self, request: Message) -> Optional[Message]:
         """
         Process DHCP DECLINE Message
         """
-        self.logger.debug('< DECLINE'
+        self.logger.debug(f'{self.addr_str} < DECLINE'
             f' mac={request.client_hw.hex()} ip={request.requested_address()}')
         answer   = self.backend.decline(self.client, request)
         response = answer.message if answer else request.reply()
         response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.setdefault(DHCPMessageType(MessageType.Nak), 0)
         response.options.setdefault(ServerIdentifier(self.server_id), 1)
-        self.logger.debug(f'> {mtype(response)} mac={request.client_hw.hex()}')
+        self.logger.debug(self.addr_str +
+            f' > {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
     def process_release(self, request: Message) -> Optional[Message]:
         """
         Process DHCP RELEASE Message
         """
-        self.logger.debug('< RELEASE'
+        self.logger.debug(f'{self.addr_str} < RELEASE'
             f' mac={request.client_hw.hex()} ip={request.requested_address()}')
         answer   = self.backend.release(self.client, request)
         response = answer.message if answer else request.reply()
         response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.setdefault(DHCPMessageType(MessageType.Ack), 0)
         response.options.setdefault(ServerIdentifier(self.server_id), 1)
-        self.logger.debug(f'> {mtype(response)} mac={request.client_hw.hex()}')
+        self.logger.debug(self.addr_str +
+            f' > {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
     def process_inform(self, request: Message) -> Optional[Message]:
