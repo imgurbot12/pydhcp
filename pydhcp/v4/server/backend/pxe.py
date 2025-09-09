@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Dict, Optional
 from typing_extensions import Annotated
 
 from pyderive import dataclass, field
-from pyderive.extensions.validate import BaseModel, Validator
+from pyderive.extensions.validate import BaseModel, PreValidator
 
 from . import Address, Answer, Backend
 from ... import *
@@ -42,7 +42,7 @@ def arch_validator(arch: Any) -> Arch:
 
 #** Classes **#
 
-ArchT = Annotated[Arch, Validator[arch_validator]]
+ArchT = Annotated[Arch, PreValidator[arch_validator]]
 
 class PxeTftpConfig(BaseModel, typecast=True):
     """
