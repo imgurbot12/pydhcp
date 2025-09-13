@@ -166,7 +166,15 @@ class Server(BaseSession):
             self.logger.error(f'{self.addr_str} | no response given.')
             self.writer.close()
             return
-        data = response.pack().rjust(300, b'\x00')
+        # NOTE: BOOTP official RFC says packets must be a minimum size
+        # of 300 octets to be considered valid and not potetially dropped.
+        # so historically we've padded the packed response with zero bytes
+        # to match the minimum, however that seemingly breaks DHCP for
+        # some networks. instead we switch to a warning log
+        data = response.pack() # .rjust(300, b'\x00')
+        if len(data) < 300:
+            self.logger.warning(
+                f'{self.addr_str} | response less than 300 octets {len(data)}')
         host = assign_zero(request.client_addr, request.gateway_addr)
         host = assign_zero(host, IPv4Address(self.client.host))
         host = assign_zero(host, self.broadcast)
