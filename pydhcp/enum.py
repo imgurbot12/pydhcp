@@ -22,6 +22,13 @@ class Arch(IntEnum):
     EFI_BC            = 7
     EFI_XSCALE        = 8
     EFI_X86_64        = 9
+    EFI_ARM32         = 10
+    EFI_ARM64         = 11
+    EFI_RISCV32       = 12
+    EFI_RISCV64       = 13
+    EFI_RISCV128      = 14
+    EFI_LOONGARCH32   = 15
+    EFI_HTTP          = 16
 
 class HwType(IntEnum):
     """
