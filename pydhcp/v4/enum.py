@@ -207,6 +207,7 @@ class OptionCode(IntEnum):
     # Options 224-254 are reserved for private use
     FortinetManagerIP      = 240 #[FortiNet FortiManager]
     FortinetManagerDomain  = 241 #[FortiNet FortiManager]
+    PrivateUse242          = 242 #[Private/Site-specific - requested by UEFI PXE]
     MSClasslessStaticRoute = 249
     MSEncodingLongOption   = 250
     CiscoAutoConfigure     = 251 #[Cisco DHCP Options]
