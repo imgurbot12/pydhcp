@@ -152,12 +152,18 @@ class PXEBackend(Backend):
         # retrieve client information relevant to dynamic assignment
         hwaddr = request.client_hw.hex()
         config = self.get_pxe_config(hwaddr, request)
+        # resolve arch label for log
+        arches = request.options.get(ClientSystemArch)
+        if arches and arches.arches:
+            arch = 'UEFI' if arches.arches[0].name.startswith('EFI') else 'BIOS'
+        else:
+            arch = '?'
         # build DHCP options based on configuration
         message  = [f'{address[0]}:{address[1]} | {hwaddr}']
         response = response or request.reply()
         response.server_addr = config.ipaddr
         response.options.append(TFTPServerIP(config.ipaddr.packed))
-        message.append(f'-> pxe={str(config.ipaddr)}')
+        message.append(f'-> arch={arch} pxe={str(config.ipaddr)}')
         if config.primary:
             response.boot_file   = config.filename or response.boot_file
             response.server_name = config.hostname or response.server_name
