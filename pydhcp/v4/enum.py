@@ -216,7 +216,7 @@ class OptionCode(IntEnum):
     End                    = 255
 
     @classmethod
-    def get(cls, value: int) -> Union[OptionCode, 'PrivateOptionCode']:
+    def get(cls, value: int) -> Union['OptionCode', 'PrivateOptionCode']:
         """
         retrieve OptionCode object or default for the given integer value
         """
