@@ -56,7 +56,8 @@ __all__ = [
 ]
 
 ByteContent   = Annotated[bytes, GreedyBytes()]
-OptionCodeInt = Annotated[OptionCode, U8]
+OptionCodes   = Union[OptionCode, PrivateOptionCode]
+OptionCodeInt = Annotated[OptionCodes, U8]
 
 #** Functions **#
 
@@ -213,7 +214,10 @@ class ParamRequestList(Option):
     DHCP Parameter Request List (55) - DHCP Request for Specified Options
     """
     opcode: ClassVar[OptionCode] = OptionCode.ParameterRequestList
-    params: Annotated[List[OptionCode], GreedyList(OptionCodeInt)]
+    params: Annotated[List[OptionCodes], GreedyList(OptionCodeInt)]
+
+    def __post_init__(self):
+        self.params = [OptionCode.get(v) for v in self.params]
 
 class DHCPMessage(Option):
     """
@@ -226,7 +230,7 @@ class MaxMessageSize(Option):
     """
     DHCP Max Message Size (57) - Maximum Length Packet Sender will Accept
     """
-    opcode: ClassVar[OptionCode] = OptionCode.Message
+    opcode: ClassVar[OptionCode] = OptionCode.MaximumDHCPMessageSize
     size:   U16
 
 class RenewalTime(Option):
@@ -312,7 +316,7 @@ class Unknown:
     """
     __slots__ = ('data', )
 
-    opcode: ClassVar[Union[OptionCode, PrivateOptionCode]]
+    opcode: ClassVar[OptionCodes]
     size:   ClassVar[int]
 
     def __init__(self, data: bytes):
@@ -332,8 +336,7 @@ class Unknown:
 
     @classmethod
     @lru_cache(maxsize=None)
-    def new(cls,
-        opcode: Union[OptionCode, PrivateOptionCode], size: int) -> Type:
+    def new(cls, opcode: OptionCodes, size: int) -> Type:
         return type('Unknown', (cls, ), {'opcode': opcode, 'size': size})
 
 #** Init **#
