@@ -8,8 +8,9 @@ from logging import Logger, getLogger
 from threading import Lock
 from typing import ClassVar, Dict, Optional, Set
 
-from pyderive import InitVar, dataclass, field
+from pyderive import dataclass, field
 
+from .pxe import PXEBackend
 from .memory import MemoryBackend, clean_mac
 from .simple import SimpleAnswer, SimpleBackend
 
@@ -17,7 +18,7 @@ from .simple import SimpleAnswer, SimpleBackend
 __all__ = ['CacheBackend']
 
 #: default set of other backend sources to ignore
-IGNORE = {MemoryBackend.source}
+IGNORE = {MemoryBackend.source, PXEBackend.source}
 
 #** Classes **#
 
