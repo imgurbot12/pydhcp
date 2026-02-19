@@ -215,7 +215,7 @@ class Server(BaseSession):
             response = response or request.reply()
             response.options.setdefault(DHCPMessageType(MessageType.Nak))
             response.options.setdefault(DHCPStatusCode(code, str(e).encode()))
-            raise e
+            self.logger.exception(f'{self.addr_str} | captured exception')
         finally:
             self._send(request, response)
 
