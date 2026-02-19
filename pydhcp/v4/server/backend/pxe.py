@@ -154,10 +154,8 @@ class PXEBackend(Backend):
         config = self.get_pxe_config(hwaddr, request)
         # resolve arch label for log
         arches = request.options.get(ClientSystemArch)
-        if arches and arches.arches:
-            arch = 'UEFI' if arches.arches[0].name.startswith('EFI') else 'BIOS'
-        else:
-            arch = '?'
+        arch = ('UEFI' if arches.arches[0].name.startswith('EFI') else 'BIOS') \
+            if arches and arches.arches else '?'
         # build DHCP options based on configuration
         message  = [f'{address[0]}:{address[1]} | {hwaddr}']
         response = response or request.reply()

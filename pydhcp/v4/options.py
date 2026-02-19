@@ -2,7 +2,7 @@
 DHCPv4 Option Implementations
 """
 from functools import lru_cache
-from typing import ClassVar, List, Optional, Type
+from typing import ClassVar, List, Optional, Type, Union
 from typing_extensions import Annotated, Self
 
 from pystructs import (
@@ -12,7 +12,7 @@ from pystructs import (
 from ..abc import DHCPOption
 from ..enum import Arch, StatusCode
 
-from .enum import MessageType, OptionCode
+from .enum import MessageType, OptionCode, PrivateOptionCode
 
 #** Variables **#
 __all__ = [
@@ -62,21 +62,25 @@ OptionCodeInt = Annotated[OptionCode, U8]
 
 def pack_option(option: 'Option', ctx: Optional[Context] = None) -> bytes:
     """
+    pack option object into a bytestring
     """
     return OptionHeader(option.opcode, option.pack()).pack(ctx)
 
 def unpack_option(raw: bytes, ctx: Optional[Context] = None) -> 'Option':
     """
+    unpack raw bytestring into an option object
     """
     header = OptionHeader.unpack(raw, ctx)
-    oclass = OPTION_MAP.get(header.opcode, None)
-    oclass = oclass or Unknown.new(header.opcode, len(header.option))
+    opcode = OptionCode.get(header.opcode)
+    oclass = OPTION_MAP.get(opcode, None) \
+        if isinstance(opcode, OptionCode) else None
+    oclass = oclass or Unknown.new(opcode, len(header.option))
     return oclass.unpack(header.option)
 
 #** Classes **#
 
 class OptionHeader(Struct):
-    opcode: OptionCodeInt
+    opcode: Annotated[int, U8]
     option: Annotated[bytes, HintedBytes(U8)]
 
 class Option(Struct, DHCPOption):
@@ -308,7 +312,7 @@ class Unknown:
     """
     __slots__ = ('data', )
 
-    opcode: ClassVar[OptionCode]
+    opcode: ClassVar[Union[OptionCode, PrivateOptionCode]]
     size:   ClassVar[int]
 
     def __init__(self, data: bytes):
@@ -328,7 +332,8 @@ class Unknown:
 
     @classmethod
     @lru_cache(maxsize=None)
-    def new(cls, opcode: OptionCode, size: int) -> Type:
+    def new(cls,
+        opcode: Union[OptionCode, PrivateOptionCode], size: int) -> Type:
         return type('Unknown', (cls, ), {'opcode': opcode, 'size': size})
 
 #** Init **#

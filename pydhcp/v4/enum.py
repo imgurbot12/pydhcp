@@ -2,6 +2,8 @@
 DHCPv4 Enums
 """
 from enum import IntEnum
+from functools import total_ordering
+from typing import Any, Union
 
 #** Variables **#
 __all__ = ['OpCode', 'MessageType', 'OptionCode']
@@ -207,9 +209,51 @@ class OptionCode(IntEnum):
     # Options 224-254 are reserved for private use
     FortinetManagerIP      = 240 #[FortiNet FortiManager]
     FortinetManagerDomain  = 241 #[FortiNet FortiManager]
-    PrivateUse242          = 242 #[Private/Site-specific - requested by UEFI PXE]
     MSClasslessStaticRoute = 249
     MSEncodingLongOption   = 250
     CiscoAutoConfigure     = 251 #[Cisco DHCP Options]
     ProxyAutoDiscover      = 252 #[RFC-draft-ietf-wrec-wpad-01]
     End                    = 255
+
+    @classmethod
+    def get(cls, value: int) -> Union[OptionCode, 'PrivateOptionCode']:
+        """
+        retrieve OptionCode object or default for the given integer value
+        """
+        if value in cls._value2member_map_:
+            return cls(value)
+        return PrivateOptionCode(value)
+
+@total_ordering
+class PrivateOptionCode(int):
+    """
+    Default OptionCode Object when Using Unspecified Vendored Codes
+    """
+
+    def __init__(self, value: int):
+        self.value = value
+        self.name  = f'PrivateOption{value}'
+
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__}.{self.name}: {self.value}>'
+
+    def __eq__(self, other: Any) -> bool:
+        return self.value == other
+
+    def __lt__(self, other: Any) -> bool:
+        return self.value < other
+
+    def __or__(self, other: Any) -> int:
+        return self.value | other
+
+    def __and__(self, other: Any) -> int:
+        return self.value | other
+
+    def __hash__(self) -> int:
+        return self.value
+
+    def __index__(self) -> int:
+        return self.value
+
+    def to_bytes(self, *args: Any, **kwargs: Any) -> bytes:
+        return self.value.to_bytes(*args, **kwargs)
