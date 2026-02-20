@@ -63,6 +63,7 @@ class Backend(Protocol):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def decline(self, address: Address, request: Message) -> Optional[Answer]:
         """
         Process DHCP DECLINE Message and Send Response
