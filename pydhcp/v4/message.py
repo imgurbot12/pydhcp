@@ -10,7 +10,7 @@ from pystructs import U16, U32, U8, Const, Context, IPv4, StaticBytes, Struct
 
 from ..abc import OptionList
 from ..enum import HwType
-from .enum import MessageType, OpCode, OptionCode
+from .enum import MessageType, OpCode, OptionCode, OptionCodes
 from .options import *
 
 #** Variables **#
@@ -77,7 +77,7 @@ class Message:
         option = self.options.get(DHCPMessageType)
         return option.mtype if option else None
 
-    def requested_options(self) -> List[OptionCode]:
+    def requested_options(self) -> List[OptionCodes]:
         """
         retrieve `ParamRequestList` option value from options (if present)
 

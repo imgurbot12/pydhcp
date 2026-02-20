@@ -12,7 +12,7 @@ from pystructs import (
 from ..abc import DHCPOption
 from ..enum import Arch, StatusCode
 
-from .enum import MessageType, OptionCode, PrivateOptionCode
+from .enum import MessageType, OptionCode, OptionCodes
 
 #** Variables **#
 __all__ = [
@@ -56,7 +56,6 @@ __all__ = [
 ]
 
 ByteContent   = Annotated[bytes, GreedyBytes()]
-OptionCodes   = Union[OptionCode, PrivateOptionCode]
 OptionCodeInt = Annotated[OptionCodes, U8]
 
 #** Functions **#

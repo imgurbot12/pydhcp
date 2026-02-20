@@ -6,7 +6,10 @@ from functools import total_ordering
 from typing import Any, Union
 
 #** Variables **#
-__all__ = ['OpCode', 'MessageType', 'OptionCode']
+__all__ = ['OpCode', 'MessageType', 'OptionCode', 'OptionCodes']
+
+#: supported option-code types
+OptionCodes = Union['OptionCode', 'PrivateOptionCode']
 
 #** Classes **#
 
