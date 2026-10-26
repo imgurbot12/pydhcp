@@ -262,6 +262,12 @@ class Message:
         while raw[ctx.index] not in (0, OptionCode.End):
             option = unpack_option(raw, ctx)
             options.append(option)
+        #NOTE: StaticBytes assume trailing zeros are padding which
+        # can create issues if the hw-address ends in zeros. Check
+        # the declared hw-length to determine if address was cut short.
+        if len(header.hw_addr) < header.hw_length:
+            hw_addr = header.hw_addr.ljust(header.hw_length, b'\x00')
+            header.hw_addr = HexBytes(hw_addr)
         return cls(
             op=header.opcode,
             id=header.message_id,
