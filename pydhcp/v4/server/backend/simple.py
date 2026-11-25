@@ -38,7 +38,7 @@ class SimpleBackend(Backend, Protocol):
     logger: Logger
 
     @abstractmethod
-    def request_address(self,
+    async def request_address(self,
         mac: str, ipv4: Optional[IPv4Address]) -> Optional[SimpleAnswer]:
         """
         Retrieve IP-Address Assignment for Specified MAC-Address
@@ -50,7 +50,7 @@ class SimpleBackend(Backend, Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def release_address(self, mac: str):
+    async def release_address(self, mac: str):
         """
         Release ANY existing Assignment for Specified MAC-Address
 
@@ -58,9 +58,9 @@ class SimpleBackend(Backend, Protocol):
         """
         raise NotImplementedError
 
-    def _assign(self, address: Address, request: Message) -> Message:
+    async def _assign(self, address: Address, request: Message) -> Message:
         """
-        retrieve assignment and generate dhcp response message
+        Retrieve assignment and generate dhcp response message
 
         :param address: client address
         :param request: dhcp request message
@@ -68,7 +68,7 @@ class SimpleBackend(Backend, Protocol):
         """
         mac    = request.client_hw.hex()
         ipv4   = request.requested_address()
-        assign = self.request_address(mac, ipv4)
+        assign = await self.request_address(mac, ipv4)
         if assign is None:
             return request.reply([
                 DHCPStatusCode(
@@ -94,20 +94,20 @@ class SimpleBackend(Backend, Protocol):
             ]
         )
 
-    def discover(self, address: Address, request: Message) -> Optional[Answer]:
+    async def discover(self, address: Address, request: Message) -> Optional[Answer]:
         if request.hw_type == HwType.Ethernet:
-            message = self._assign(address, request)
+            message = await self._assign(address, request)
             return Answer(message, self.source)
 
-    def request(self, address: Address, request: Message) -> Optional[Answer]:
+    async def request(self, address: Address, request: Message) -> Optional[Answer]:
         if request.hw_type == HwType.Ethernet:
-            message = self._assign(address, request)
+            message = await self._assign(address, request)
             return Answer(message, self.source)
 
-    def decline(self, address: Address, request: Message) -> Optional[Answer]:
+    async def decline(self, address: Address, request: Message) -> Optional[Answer]:
         if request.hw_type == HwType.Ethernet:
-            self.release_address(request.client_hw.hex())
+            await self.release_address(request.client_hw.hex())
 
-    def release(self, address: Address, request: Message) -> Optional[Answer]:
+    async def release(self, address: Address, request: Message) -> Optional[Answer]:
         if request.hw_type == HwType.Ethernet:
-            self.release_address(request.client_hw.hex())
+            await self.release_address(request.client_hw.hex())

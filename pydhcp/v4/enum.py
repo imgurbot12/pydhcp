@@ -221,7 +221,7 @@ class OptionCode(IntEnum):
     @classmethod
     def get(cls, value: int) -> Union['OptionCode', 'PrivateOptionCode']:
         """
-        retrieve OptionCode object or default for the given integer value
+        Retrieve OptionCode object or default for the given integer value
         """
         if value in cls._value2member_map_:
             return cls(value)

@@ -4,25 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pydhcp3"
-version = "0.0.6"
+version = "0.0.7"
 requires-python = ">=3.8"
 dependencies = [
-    'pypool3>=0.0.2',
     'pyderive3>=0.0.7',
     'pystructs3>=0.0.8',
-    'pyserve3>=0.0.7',
+    'pyserve3>=0.0.8',
     'typing_extensions>=4.7.1',
 ]
-authors = [
-    {name = "Andrew C Scott", email = "imgurbot12@gmail.com"},
-]
+authors = [{name = "Andrew C Scott", email = "imgurbot12@gmail.com"}]
 description = "Simple Python DHCP Library. DHCP Packet-Parsing/Client/Server"
 readme = {file = "README.md", content-type = "text/markdown"}
-license = { file = 'LICENSE' }
 keywords = ["dhcp", "client", "server", "parser"]
 classifiers = [
     "Typing :: Typed",
-    "License :: OSI Approved :: MIT License",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",

@@ -1,10 +1,10 @@
 """
 Example Memory Based Backend for DHCP Server
 """
+from asyncio import Lock
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network
 from logging import Logger, getLogger
-from threading import Lock
 from typing import ClassVar, Dict, Iterator, List, Optional
 
 from pyderive import dataclass
@@ -16,17 +16,14 @@ from .simple import SimpleAnswer, SimpleBackend
 #** Variables **#
 __all__ = ['MemoryBackend']
 
-#: default lease assignment for dhcp memory-backend
+#: default lease assignment for DHCP memory-backend
 DEFAULT_LEASE = timedelta(seconds=3600)
 
 #** Functions **#
 
 def clean_mac(mac: str) -> str:
     """
-    clean mac-address for use as a standardized key
-
-    :param mac: mac-address to clean
-    :return:    cleaned mac-address
+    Clean mac-address for use as a standardized key
     """
     return mac.lower().replace(':', '').replace('-', '')
 
@@ -44,7 +41,7 @@ class IPRecord(BaseModel):
 
 class Record(BaseModel):
     """
-    Tempory IPRecord with Expiration
+    Temporary IP-Record with Expiration
     """
     record:  IPRecord
     expires: datetime
@@ -75,11 +72,7 @@ class MemoryBackend(SimpleBackend):
 
     def set_static(self, mac: str, ipaddr: IPv4Address, **settings):
         """
-        assign static address within configured dhcp network
-
-        :param mac:      mac-address assigned to dhcp
-        :param ipaddr:   ip-address to staticly assign to mac
-        :param settings: additional settings for static assignment
+        Assign static address within configured DHCP network
         """
         if ipaddr not in self.network:
             raise ValueError(f'{ipaddr} not within {self.network}')
@@ -89,7 +82,7 @@ class MemoryBackend(SimpleBackend):
 
     def _reclaim_all(self):
         """
-        reclaim addresses from expired dhcp leases
+        Reclaim addresses from expired DHCP leases
         """
         now   = datetime.now()
         clean = [mac for mac, r in self.records.items() if r.expires <= now]
@@ -100,9 +93,7 @@ class MemoryBackend(SimpleBackend):
 
     def _reclaim_address(self, mac: str):
         """
-        reclaim single address for database address-pool
-
-        :param mac: mac-address
+        Reclaim single address for database address-pool
         """
         record = self.records.pop(mac, None)
         if record is not None:
@@ -111,10 +102,7 @@ class MemoryBackend(SimpleBackend):
     def _next_ip(self,
         mac: str, ipv4: Optional[IPv4Address]) -> Optional[IPv4Interface]:
         """
-        retrieve ip-assignment based on dhcp request and database
-
-        :param request: dhcp request message
-        :return:        ip-address assignment (if address available)
+        Retrieve IP assignment based on DHCP request and database
         """
         # check if client has existing assignment
         now    = datetime.now()
@@ -124,31 +112,30 @@ class MemoryBackend(SimpleBackend):
             lease          = record.record.lease or self.default_lease
             record.expires = now + lease
             return record.record.ipv4
-        # check if requested-ip is available
+        # check if requested ip is available
         if ipv4 is not None:
             addr = IPv4Interface(f'{ipv4}/{self.network.netmask}')
             if addr in self.reclaimed:
                 self.reclaimed.remove(addr)
                 return addr
-        # retrieve first available in reclaimed or next in hostlist
+        # retrieve first available in reclaimed or next in host list
         if self.reclaimed:
             return self.reclaimed.pop(0)
         # retrieve next ip in host-list (skipping reserved ips)
         try:
             ipaddr    = None
             reserved  = {r.ipv4.ip for r in self.static.values()}
-            reserved |= set([self.gateway, *self.dns])
+            reserved |= {self.gateway, *self.dns}
             while ipaddr is None or ipaddr in reserved:
                 ipaddr = next(self.addresses)
             return IPv4Interface(f'{ipaddr}/{self.network.netmask}')
         except StopIteration:
             return
 
-    def request_address(self,
+    async def request_address(self,
         mac: str, ipv4: Optional[IPv4Address]) -> Optional[SimpleAnswer]:
-        with self.lock:
+        async with self.lock:
             self._reclaim_all()
-            # retrieve assignment from static or retirve available ip-address
             record = self.static.get(mac)
             if record is None:
                 address = self._next_ip(mac, ipv4)
@@ -167,7 +154,7 @@ class MemoryBackend(SimpleBackend):
                 dns_search=record.search or self.dns_search,
             )
 
-    def release_address(self, mac: str):
-        with self.lock:
+    async def release_address(self, mac: str):
+        async with self.lock:
             self._reclaim_address(mac)
             self._reclaim_all()

@@ -37,12 +37,12 @@ class Answer(NamedTuple):
 
 class Backend(Protocol):
     """
-    BaseClass Interface Definition for Backend Implementations
+    Base-class Interface Definition for Backend Implementations
     """
     source: ClassVar[str]
 
     @abstractmethod
-    def discover(self, address: Address, request: Message) -> Optional[Answer]:
+    async def discover(self, address: Address, request: Message) -> Optional[Answer]:
         """
         Process DHCP DISCOVER Message and Send Response
 
@@ -53,7 +53,7 @@ class Backend(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def request(self, address: Address, request: Message) -> Optional[Answer]:
+    async def request(self, address: Address, request: Message) -> Optional[Answer]:
         """
         Process DHCP REQUEST Message and Send Response
 
@@ -64,7 +64,7 @@ class Backend(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def decline(self, address: Address, request: Message) -> Optional[Answer]:
+    async def decline(self, address: Address, request: Message) -> Optional[Answer]:
         """
         Process DHCP DECLINE Message and Send Response
 
@@ -75,7 +75,7 @@ class Backend(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def release(self, address: Address, request: Message) -> Optional[Answer]:
+    async def release(self, address: Address, request: Message) -> Optional[Answer]:
         """
         Process DHCP RELEASE Message and Send Response
 

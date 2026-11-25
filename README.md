@@ -39,31 +39,36 @@ print(message)
 Client
 
 ```python
+import asyncio
 from pydhcp.v4 import Message
 from pydhcp.v4.client import Client, new_message_id
 
 mac    = 'aa:bb:cc:dd:ee:ff'
 client = Client(interface=None)
 
-# send crafted messages
-id       = new_message_id()
-hwaddr   = bytes.fromhex(mac.replace(':', ''))
-request  = Message.discover(id, hwaddr)
-response = client.request(request)
-print(response)
+async def main():
+    # send crafted messages
+    id       = new_message_id()
+    hwaddr   = bytes.fromhex(mac.replace(':', ''))
+    request  = Message.discover(id, hwaddr)
+    response = client.request(request)
+    print(response)
 
-# or simplify the standard network assignment request process
-record = client.request_assignment(mac)
-print(record)
+    # or simplify the standard network assignment request process
+    record = client.request_assignment(mac)
+    print(record)
+
+asyncio.run(main())
 ```
 
 Server
 
 ```python
+import asyncio
 import logging
 from ipaddress import IPv4Address, IPv4Network
 
-from pyserve import listen_udp_threaded
+from pyserve import listen_udp_async
 
 from pydhcp.v4.server import Server
 from pydhcp.v4.server.backend import MemoryBackend, CacheBackend
@@ -75,21 +80,23 @@ backend = MemoryBackend(
     dns=[IPv4Address('8.8.8.8'), IPv4Address('8.8.4.4')],
 )
 
-# wrap backend w/ cache (not really useful here but for non-memory backends)
+# wrap backend with cache (not really useful here but for non-memory backends)
 backend = CacheBackend(backend)
 
-# configure optional logger for server implementaion
+# configure optional logger for server implementation
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('myserver')
 logger.setLevel(logging.INFO)
 
 # launch server and run forever using pyserve
-listen_udp_threaded(
+asyncio.run(listen_udp_async(
     address=('0.0.0.0', 67),
     factory=Server,
     allow_broadcast=True,
-    backend=backend,
-    logger=logger,
-    server_id=IPv4Address('192.168.1.1') # dhcp server address
-)
+    kwargs={
+        'backend':   backend,
+        'logger':    logger,
+        'server_id': IPv4Address('192.168.1.1') # dhcp server address
+    }
+))
 ```

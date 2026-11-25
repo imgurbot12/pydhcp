@@ -30,7 +30,7 @@ PXE_OPTIONS = {
 
 def arch_validator(arch: Any) -> Arch:
     """
-    pyderive Arch validator function
+    PyDerive Arch validator function
     """
     if isinstance(arch, int):
         return Arch(arch)
@@ -113,7 +113,7 @@ class PXEBackend(Backend):
                 subcfg = self.config.dynamic.arches.get(arch)
                 if subcfg is not None:
                     break
-        # attempt to retrieve dynamic sub-config based on vendor
+        # attempt to retrieve dynamic sub configuration based on vendor
         if not subcfg and vendor and self.config.dynamic:
             vendor = vendor.vendor.decode()
             self.logger.debug(f'{hwaddr} vendor={vendor!r}')
@@ -177,24 +177,24 @@ class PXEBackend(Backend):
         self.logger.info(' '.join(message))
         return response
 
-    def discover(self, address: Address, request: Message) -> Optional[Answer]:
-        answer = self.backend.discover(address, request) \
+    async def discover(self, address: Address, request: Message) -> Optional[Answer]:
+        answer = await self.backend.discover(address, request) \
             if self.backend else None
         res, src = answer if answer else (None, self.source)
         response = self.pxe(address, request, res)
         return Answer(response, src) if response else None
 
-    def request(self, address: Address, request: Message) -> Optional[Answer]:
-        answer = self.backend.request(address, request) \
+    async def request(self, address: Address, request: Message) -> Optional[Answer]:
+        answer = await self.backend.request(address, request) \
             if self.backend else None
         res, src = answer if answer else (None, self.source)
         response = self.pxe(address, request, res)
         return Answer(response, src) if response else None
 
-    def release(self, address: Address, request: Message) -> Optional[Answer]:
+    async def release(self, address: Address, request: Message) -> Optional[Answer]:
         if self.backend is not None:
-            return self.backend.release(address, request)
+            return await self.backend.release(address, request)
 
-    def decline(self, address: Address, request: Message) -> Optional[Answer]:
+    async def decline(self, address: Address, request: Message) -> Optional[Answer]:
         if self.backend is not None:
-            return self.backend.decline(address, request)
+            return await self.backend.decline(address, request)

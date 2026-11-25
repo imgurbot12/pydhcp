@@ -7,6 +7,7 @@ from ipaddress import IPv4Address
 from random import randint
 from typing import List, NamedTuple, Optional
 
+from pyserve import UdpAsyncClient
 from pyderive import dataclass
 
 from .. import OpCode, Message, MessageType
@@ -19,7 +20,7 @@ __all__ = ['Client', 'new_message_id']
 
 def new_message_id() -> int:
     """
-    generate a new valid id for a dns message packet
+    Generate a new valid id for a DHCP message packet
 
     :return: new valid message-id integer
     """
@@ -42,58 +43,57 @@ class IPAssignment(NamedTuple):
 @dataclass(slots=True)
 class Client:
     """
-    Baseclass Socket-Based DNS Client Implementation
+    Base-class Socket-Based DNS Client Implementation
     """
-    block_size: int = 65535
-    timeout:    int = 10
+    block_size: int   = 65535
+    timeout:    float = 10
     interface:  Optional[str] = None
 
-    def request(self, request: Message) -> Message:
+    async def request(self, request: Message) -> Message:
         """
-        make dhcp request and wait for server response
+        Make DHCP request and wait for server response
 
         :param request: dhcp request message
         :return:        dhcp response message
         """
         if request.op != OpCode.BootRequest:
             raise ValueError('Message is not DHCP Request')
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        client = UdpAsyncClient(self.timeout)
+        client.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        client.socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         if self.interface:
             iface = self.interface.encode()
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, iface)
-        sock.settimeout(self.timeout)
+            client.socket.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, iface)
         try:
-            sock.bind(('', 68))
-            sock.sendto(request.pack(), ('255.255.255.255', 67))
+            client.socket.bind(('', 68))
+            await client.sendto(request.pack(), ('255.255.255.255', 67))
             while True:
-                data, _  = sock.recvfrom(self.block_size)
+                data, _  = await client.recvfrom(self.block_size)
                 response = Message.unpack(data)
                 if response.id == request.id \
                     and response.op == OpCode.BootReply:
                     return response
         finally:
-            sock.close()
+            client.close()
 
-    def request_assignment(self, mac: str):
+    async def request_assignment(self, mac: str):
         """
-        complete traditional dhcp round-robin request for ip-address
+        Complete traditional DHCP round-robin request for ip-address
 
         :param mac: mac-address linked to network interface
-        :return:    ip-assignment recieved from dhcp-server
+        :return:    ip-assignment received from dhcp server
         """
         # make initial discover request
         id       = new_message_id()
         hwaddr   = bytes.fromhex(mac.replace(':', '').replace('-', ''))
         request  = Message.discover(id, hwaddr)
-        response = self.request(request)
+        response = await self.request(request)
         if not response.your_addr \
             or response.message_type() != MessageType.Offer:
             raise RuntimeError('DHCP Failed to Offer IPAddress')
         # make request for specified ip-address
         request  = Message.request(id, hwaddr,  response.your_addr)
-        response = self.request(request)
+        response = await self.request(request)
         if not response.your_addr \
             or response.message_type() != MessageType.Ack:
             raise RuntimeError('DHCP Failed to Acknowledge Request')
@@ -104,11 +104,11 @@ class Client:
         search  = response.options.get(DNSDomainSearchList)
         lease   = response.options.get(IPLeaseTime)
         if subnet is None:
-            raise RuntimeError('Subnet Not Specified')
+            raise RuntimeError('Subnet not specified')
         if routers is None:
-            raise RuntimeError('No Routing Gateways Specified')
+            raise RuntimeError('No routing gateways specified')
         if lease is None:
-            raise RuntimeError('IP Lease Not Specified')
+            raise RuntimeError('IP lease not specified')
         return IPAssignment(
             message=response,
             ipv4=response.your_addr,

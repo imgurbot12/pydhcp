@@ -1,11 +1,11 @@
 """
 Backend Extension to support In-Memory Answer Caching
 """
+from asyncio import Lock
 from copy import copy
 from ipaddress import IPv4Address
 from datetime import datetime, timedelta
 from logging import Logger, getLogger
-from threading import Lock
 from typing import ClassVar, Dict, Optional, Set
 
 from pyderive import dataclass, field
@@ -34,7 +34,7 @@ class CacheRecord:
 
     def __post_init__(self):
         """
-        calculate expiration-time and last-accessed time
+        Calculate expiration-time and last-accessed time
         """
         lease = self.answer.lease
         ttl   = min(lease, self.lifetime)
@@ -44,7 +44,7 @@ class CacheRecord:
 
     def is_expired(self) -> bool:
         """
-        calculate if expiration has passed or ttl is expired
+        Calculate if expiration has passed or TTL is expired
         """
         now = datetime.now()
         if self.expires <= now:
@@ -74,15 +74,12 @@ class CacheBackend(SimpleBackend):
     def __post_init__(self):
         self.logger = self.logger.getChild('cache')
 
-    def get_cache(self, mac: str) -> Optional[SimpleAnswer]:
+    async def get_cache(self, mac: str) -> Optional[SimpleAnswer]:
         """
-        retrieve from cache directly if present
-
-        :param mac: mac-address key linked to answer in cache
-        :return:    ip-assignment answer stored in cache
+        Retrieve from cache directly if present
         """
         mac = clean_mac(mac)
-        with self.mutex:
+        async with self.mutex:
             if mac not in self.cache:
                 return
             record = self.cache[mac]
@@ -92,15 +89,12 @@ class CacheBackend(SimpleBackend):
                 return
             return record.answer
 
-    def set_cache(self, mac: str, answer: SimpleAnswer):
+    async def set_cache(self, mac: str, answer: SimpleAnswer):
         """
-        save the given answers to cache for the specified mac-address
-
-        :param mac:    mac-address key linked to answer
-        :param answer: ip-assignment answer to store in cache
+        Save the given answers to cache for the specified mac-address
         """
         mac = clean_mac(mac)
-        with self.mutex:
+        async with self.mutex:
             if len(self.cache) >= self.maxsize:
                 self.logger.debug(f'maxsize: {self.maxsize} exceeded. clearing cache!')
                 self.cache.clear()
@@ -108,15 +102,15 @@ class CacheBackend(SimpleBackend):
             answer.source = self.source
             self.cache[mac] = CacheRecord(answer, self.expiration)
 
-    def request_address(self,
+    async def request_address(self,
         mac: str, ipv4: Optional[IPv4Address]) -> Optional[SimpleAnswer]:
-        answer = self.get_cache(mac)
+        answer = await self.get_cache(mac)
         if answer and (ipv4 is None or answer.ipv4.ip == ipv4):
             return answer
-        answer = self.backend.request_address(mac, ipv4)
+        answer = await self.backend.request_address(mac, ipv4)
         if answer and answer.source not in self.ignore_sources:
-            self.set_cache(mac, answer)
+            await self.set_cache(mac, answer)
         return answer
 
-    def release_address(self, mac: str):
+    async def release_address(self, mac: str):
         return self.backend.release_address(mac)

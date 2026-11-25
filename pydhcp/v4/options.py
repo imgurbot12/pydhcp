@@ -2,7 +2,7 @@
 DHCPv4 Option Implementations
 """
 from functools import lru_cache
-from typing import ClassVar, List, Optional, Type, Union
+from typing import ClassVar, List, Optional, Type
 from typing_extensions import Annotated, Self
 
 from pystructs import (
@@ -62,13 +62,13 @@ OptionCodeInt = Annotated[OptionCodes, U8]
 
 def pack_option(option: 'Option', ctx: Optional[Context] = None) -> bytes:
     """
-    pack option object into a bytestring
+    Pack option object into a byte-string
     """
     return OptionHeader(option.opcode, option.pack()).pack(ctx)
 
 def unpack_option(raw: bytes, ctx: Optional[Context] = None) -> 'Option':
     """
-    unpack raw bytestring into an option object
+    Unpack raw byte-string into an option object
     """
     header = OptionHeader.unpack(raw, ctx)
     opcode = OptionCode.get(header.opcode)
@@ -85,20 +85,20 @@ class OptionHeader(Struct):
 
 class Option(Struct, DHCPOption):
     """
-    Abstract Baseclass for DHCPv4 Option Content
+    Abstract Base-class for DHCPv4 Option Content
     """
     opcode: ClassVar[OptionCode] #type: ignore
 
 class _IPv4ListOption(Option):
     """
-    BaseClass for AddressList Options
+    Base-class for Address-List Options
     """
     opcode: ClassVar[OptionCode]
     ips:    Annotated[List[IPv4], GreedyList(IPv4)]
 
 class SubnetMask(Option):
     """
-    SubnetMask (1) - The Subnet Mask to Apply for an Ipv4 Address Assignment
+    Subnet-Mask (1) - The Subnet Mask to Apply for an IPv4 Address Assignment
     """
     opcode: ClassVar[OptionCode] = OptionCode.SubnetMask
     mask:   IPv4

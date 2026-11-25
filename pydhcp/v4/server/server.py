@@ -6,7 +6,7 @@ from logging import Logger, getLogger
 from typing import Optional, cast
 
 from pyderive import dataclass, field
-from pyserve import Address, Session as BaseSession, UdpWriter, Writer
+from pyserve import Address, AsyncSession, UdpWriter, Writer
 
 from ..  import Message, MessageType, ZeroIp
 from ..  import DhcpError, NotAllowed, UnknownQueryType
@@ -38,7 +38,7 @@ def mtype(response: Message) -> str:
 
 def assign_zero(original: IPv4Address, new: IPv4Address) -> IPv4Address:
     """
-    re-assign ip-address if original is zerod ip-address
+    Reassign ip-address if original is zerod ip-address
 
     :param original: original ip-address
     :param new:      new ip-address to assign
@@ -49,7 +49,7 @@ def assign_zero(original: IPv4Address, new: IPv4Address) -> IPv4Address:
 #** Classes **#
 
 @dataclass
-class Server(BaseSession):
+class Server(AsyncSession):
     """
     Extendable Implementation of DHCP Server Session Manager for PyServe
     """
@@ -63,13 +63,13 @@ class Server(BaseSession):
 
     ### DHCP Handlers
 
-    def process_discover(self, request: Message) -> Optional[Message]:
+    async def process_discover(self, request: Message) -> Optional[Message]:
         """
         Process DHCP DISCOVER Message
         """
         self.logger.debug(f'{self.addr_str} < DISCOVER'
             f' mac={request.client_hw.hex()} ip={request.requested_address()}')
-        answer = self.backend.discover(self.client, request)
+        answer = await self.backend.discover(self.client, request)
         if answer is None:
             return
         response = answer.message
@@ -80,13 +80,13 @@ class Server(BaseSession):
             f' > {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
-    def process_request(self, request: Message) -> Optional[Message]:
+    async def process_request(self, request: Message) -> Optional[Message]:
         """
         Process DHCP REQUEST Message
         """
         self.logger.debug(f'{self.addr_str} < REQUEST'
             f' mac={request.client_hw.hex()} ip={request.requested_address()}')
-        answer = self.backend.request(self.client, request)
+        answer = await self.backend.request(self.client, request)
         if answer is None:
             return
         # ensure required response components are present
@@ -105,13 +105,13 @@ class Server(BaseSession):
             f' > {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
-    def process_decline(self, request: Message) -> Optional[Message]:
+    async def process_decline(self, request: Message) -> Optional[Message]:
         """
         Process DHCP DECLINE Message
         """
         self.logger.debug(f'{self.addr_str} < DECLINE'
             f' mac={request.client_hw.hex()} ip={request.requested_address()}')
-        answer   = self.backend.decline(self.client, request)
+        answer   = await self.backend.decline(self.client, request)
         response = answer.message if answer else request.reply()
         response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.setdefault(DHCPMessageType(MessageType.Nak), 0)
@@ -120,13 +120,13 @@ class Server(BaseSession):
             f' > {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
-    def process_release(self, request: Message) -> Optional[Message]:
+    async def process_release(self, request: Message) -> Optional[Message]:
         """
         Process DHCP RELEASE Message
         """
         self.logger.debug(f'{self.addr_str} < RELEASE'
             f' mac={request.client_hw.hex()} ip={request.requested_address()}')
-        answer   = self.backend.release(self.client, request)
+        answer   = await self.backend.release(self.client, request)
         response = answer.message if answer else request.reply()
         response.server_addr = assign_zero(response.server_addr, self.server_id)
         response.options.setdefault(DHCPMessageType(MessageType.Ack), 0)
@@ -135,13 +135,13 @@ class Server(BaseSession):
             f' > {mtype(response)} mac={request.client_hw.hex()}')
         return response
 
-    def process_inform(self, request: Message) -> Optional[Message]:
+    async def process_inform(self, request: Message) -> Optional[Message]:
         """
         Process DHCP INFORM Message
         """
         raise NotAllowed('Inform Not Allowed')
 
-    def process_unknown(self, request: Message) -> Optional[Message]:
+    async def process_unknown(self, request: Message) -> Optional[Message]:
         """
         Process Unknown/Invalid DHCP Messages
         """
@@ -149,9 +149,9 @@ class Server(BaseSession):
 
     ### Standard Handlers
 
-    def connection_made(self, addr: Address, writer: Writer):
+    async def connection_made(self, addr: Address, writer: Writer):
         """
-        handle session initialization on connection-made
+        Handle session initialization on connection-made
         """
         self.client:   Address   = addr
         self.writer:   UdpWriter = cast(UdpWriter, writer)
@@ -160,7 +160,7 @@ class Server(BaseSession):
 
     def _send(self, request: Message, response: Optional[Message]):
         """
-        broadcast dhcp response packet to the relevant ips
+        Broadcast DHCP response packet to the relevant ips
         """
         if not response:
             self.logger.error(f'{self.addr_str} | no response given.')
@@ -170,7 +170,7 @@ class Server(BaseSession):
         # of 300 octets to be considered valid and not potetially dropped.
         # so historically we've padded the packed response with zero bytes
         # to match the minimum, however that seemingly breaks DHCP for
-        # some networks. instead we switch to a warning log
+        # some networks. Instead we switch to a warning log
         data = response.pack() # .rjust(300, b'\x00')
         if len(data) < 300:
             self.logger.warning(
@@ -183,9 +183,9 @@ class Server(BaseSession):
             f'{self.addr_str} > sent {len(data)} bytes to {host}:{PORT}')
         self.writer.write(data, addr=(host, PORT))
 
-    def data_recieved(self, data: bytes):
+    async def data_received(self, data: bytes):
         """
-        parse raw packet-data and process request
+        Parse raw packet-data and process request
         """
         self.logger.debug(f'{self.addr_str} < recieved {len(data)} bytes')
         request      = Message.unpack(data)
@@ -195,17 +195,17 @@ class Server(BaseSession):
         response: Optional[Message] = None
         try:
             if message_type == MessageType.Discover:
-                response = self.process_discover(request)
+                response = await self.process_discover(request)
             elif message_type == MessageType.Request:
-                response = self.process_request(request)
+                response = await self.process_request(request)
             elif message_type == MessageType.Decline:
-                response = self.process_decline(request)
+                response = await self.process_decline(request)
             elif message_type == MessageType.Release:
-                response = self.process_release(request)
+                response = await self.process_release(request)
             elif message_type == MessageType.Inform:
-                response = self.process_inform(request)
+                response = await self.process_inform(request)
             else:
-                response = self.process_unknown(request)
+                response = await self.process_unknown(request)
         except DhcpError as e:
             response = response or request.reply()
             response.options.setdefault(DHCPMessageType(MessageType.Nak), 0)
@@ -219,8 +219,8 @@ class Server(BaseSession):
         finally:
             self._send(request, response)
 
-    def connection_lost(self, err: Optional[Exception]):
+    async def connection_lost(self, err: Optional[Exception]):
         """
-        debug log connection lost
+        Debug log connection lost
         """
         self.logger.debug(f'{self.addr_str} | connection-lost err={err}')

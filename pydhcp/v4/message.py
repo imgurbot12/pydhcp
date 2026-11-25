@@ -16,7 +16,7 @@ from .options import *
 #** Variables **#
 __all__ = ['ZeroIp', 'Message']
 
-#: pre-converted default ip-address for dhcpv4 packet
+#: pre-converted default ip-address for DHCPv4 packet
 ZeroIp = IPv4Address('0.0.0.0')
 
 #: magic cookie to include in DHCP message
@@ -70,7 +70,7 @@ class Message:
 
     def message_type(self) -> Optional[MessageType]:
         """
-        retrieve `MessageType` option value from options (if present)
+        Retrieve `MessageType` option value from options (if present)
 
         :return: assigned packet message-type
         """
@@ -79,7 +79,7 @@ class Message:
 
     def requested_options(self) -> List[OptionCodes]:
         """
-        retrieve `ParamRequestList` option value from options (if present)
+        Retrieve `ParamRequestList` option value from options (if present)
 
         :return: list of requested option-codes
         """
@@ -88,7 +88,7 @@ class Message:
 
     def requested_address(self) -> Optional[IPv4Address]:
         """
-        retrieve `RequestedIPAddr` option value from options (if present)
+        Retrieve `RequestedIPAddr` option value from options (if present)
 
         :return: client requested ipv4 address
         """
@@ -97,21 +97,21 @@ class Message:
 
     def subnet_mask(self) -> Optional[IPv4Address]:
         """
-        retrieve `SubnetMask` option value from options (if present)
+        Retrieve `SubnetMask` option value from options (if present)
         """
         option = self.options.get(SubnetMask)
         return option.mask if option else None
 
     def broadcast_address(self) -> Optional[IPv4Address]:
         """
-        retrieve `BroadcastAddr` option value from options (if present)
+        Retrieve `BroadcastAddr` option value from options (if present)
         """
         option = self.options.get(BroadcastAddr)
         return option.addr if option else None
 
     def server_identifier(self) -> Optional[IPv4Address]:
         """
-        retrieve `ServerIdentifier` option value from options (if present)
+        Retrieve `ServerIdentifier` option value from options (if present)
         """
         option = self.options.get(ServerIdentifier)
         return option.ip if option else None
@@ -201,7 +201,7 @@ class Message:
 
     def reply(self, options: OptionParam = None, **kwargs) -> 'Message':
         """
-        generate template `BootReply` Message for current Message request
+        Generate template `BootReply` Message for current Message request
 
         :param options: options to pass into generated message
         :param kwargs:  additional settings for message generation
@@ -219,7 +219,7 @@ class Message:
 
     def pack(self, ctx: Optional[Context] = None) -> bytes:
         """
-        pack message object into serialized bytes
+        Pack message object into serialized bytes
 
         :param ctx: serialization context object
         :return:    serialized bytes
@@ -250,7 +250,7 @@ class Message:
     @classmethod
     def unpack(cls, raw: bytes, ctx: Optional[Context] = None) -> Self:
         """
-        unpack serialized bytes into deserialized message object
+        Unpack serialized bytes into deserialized message object
 
         :param raw: raw byte buffer
         :param ctx: deserialization context object

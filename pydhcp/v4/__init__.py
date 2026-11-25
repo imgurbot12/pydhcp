@@ -4,6 +4,8 @@ DHCPv4 Implementation
 
 #** Variables **#
 __all__ = [
+    'Client',
+
     'OpCode',
     'MessageType',
     'OptionCode',
@@ -60,3 +62,4 @@ from .enum import *
 from .exceptions import *
 from .message import *
 from .options import *
+from .client import Client
