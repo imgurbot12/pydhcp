@@ -51,11 +51,11 @@ async def main():
     id       = new_message_id()
     hwaddr   = bytes.fromhex(mac.replace(':', ''))
     request  = Message.discover(id, hwaddr)
-    response = client.request(request)
+    response = await client.request(request)
     print(response)
 
     # or simplify the standard network assignment request process
-    record = client.request_assignment(mac)
+    record = await client.request_assignment(mac)
     print(record)
 
 asyncio.run(main())
