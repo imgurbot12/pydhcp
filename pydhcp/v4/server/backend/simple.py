@@ -50,7 +50,7 @@ class SimpleBackend(Backend, Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    async def release_address(self, mac: str):
+    async def release_address(self, mac: str) -> None:
         """
         Release ANY existing Assignment for Specified MAC-Address
 

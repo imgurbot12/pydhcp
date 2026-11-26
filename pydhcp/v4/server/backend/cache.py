@@ -112,5 +112,5 @@ class CacheBackend(SimpleBackend):
             await self.set_cache(mac, answer)
         return answer
 
-    async def release_address(self, mac: str):
-        return self.backend.release_address(mac)
+    async def release_address(self, mac: str) -> None:
+        return await self.backend.release_address(mac)

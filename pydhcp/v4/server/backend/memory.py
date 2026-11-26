@@ -154,7 +154,7 @@ class MemoryBackend(SimpleBackend):
                 dns_search=record.search or self.dns_search,
             )
 
-    async def release_address(self, mac: str):
+    async def release_address(self, mac: str) -> None:
         async with self.lock:
             self._reclaim_address(mac)
             self._reclaim_all()
