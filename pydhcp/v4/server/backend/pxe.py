@@ -4,7 +4,7 @@ DHCP PXE TFTP Assignment Backend
 from copy import copy
 from ipaddress import IPv4Address
 from logging import Logger, getLogger
-from typing import Any, ClassVar, Dict, Optional
+from typing import Any, ClassVar, Dict, Optional, overload
 from typing_extensions import Annotated
 
 from pyderive import dataclass, field
@@ -97,10 +97,6 @@ class PXEBackend(Backend):
     def get_pxe_config(self, hwaddr: str, request: Message) -> PxeConfig:
         """
         Generate PXE Configuration based on DHCP Request Client Information
-
-        :param hwaddr:  hardware-address (MAC)
-        :param request: dhcp request message
-        :return:        pxe configuration settings
         """
         # retrieve client information relevant to dynamic assignment
         subcfg = None
@@ -132,6 +128,16 @@ class PXEBackend(Backend):
             config.hostname = subcfg.hostname or config.hostname
             config.filename = subcfg.filename or config.filename
         return config
+
+    @overload
+    def pxe(self,
+        address: Address, request: Message, response: Message) -> Message:
+        ...
+
+    @overload
+    def pxe(self, address: Address,
+        request: Message, response: None = None) -> Optional[Message]:
+        ...
 
     def pxe(self,
         address:  Address,
@@ -177,19 +183,28 @@ class PXEBackend(Backend):
         self.logger.info(' '.join(message))
         return response
 
+    def _fill(self, address: Address,
+        request: Message, answer: Optional[Answer]) -> Optional[Answer]:
+        """
+        Fill in PXE answers to an existing Message or generate a new one
+        """
+        if answer is not None:
+            source              = answer.source_label or answer.source
+            answer.message      = self.pxe(address, request, answer.message)
+            answer.source_label = f'{source}+{self.source}'
+            return answer
+        response = self.pxe(address, request)
+        return Answer(response, self.source) if response else None
+
     async def discover(self, address: Address, request: Message) -> Optional[Answer]:
         answer = await self.backend.discover(address, request) \
             if self.backend else None
-        res, src = answer if answer else (None, self.source)
-        response = self.pxe(address, request, res)
-        return Answer(response, src) if response else None
+        return self._fill(address, request, answer)
 
     async def request(self, address: Address, request: Message) -> Optional[Answer]:
         answer = await self.backend.request(address, request) \
             if self.backend else None
-        res, src = answer if answer else (None, self.source)
-        response = self.pxe(address, request, res)
-        return Answer(response, src) if response else None
+        return self._fill(address, request, answer)
 
     async def release(self, address: Address, request: Message) -> Optional[Answer]:
         if self.backend is not None:

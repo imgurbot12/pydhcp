@@ -15,7 +15,7 @@ from .memory import MemoryBackend, clean_mac
 from .simple import SimpleAnswer, SimpleBackend
 
 #** Variables **#
-__all__ = ['CacheBackend']
+__all__ = ['Cache']
 
 #: default set of other backend sources to ignore
 IGNORE = {MemoryBackend.source, PXEBackend.source}
@@ -56,7 +56,7 @@ class CacheRecord:
         return False
 
 @dataclass(slots=True)
-class CacheBackend(SimpleBackend):
+class Cache(SimpleBackend):
     """
     In-Memory Cache Extension for Backend IP-Lease Results
     """

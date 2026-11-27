@@ -2,8 +2,9 @@
 DHCP Server Data Backend Implementations
 """
 from abc import abstractmethod
-from typing import ClassVar, NamedTuple, Optional, Protocol
+from typing import ClassVar, Optional, Protocol
 
+from pyderive import dataclass
 from pyserve import Address
 
 from ... import Message
@@ -14,7 +15,7 @@ __all__ = [
     'Answer',
     'Backend',
 
-    'CacheBackend',
+    'Cache',
     'MemoryBackend',
 
     'PxeTftpConfig',
@@ -24,16 +25,19 @@ __all__ = [
 
     'SimpleAnswer',
     'SimpleBackend',
+    'SingleFlight',
 ]
 
 #** Classes **#
 
-class Answer(NamedTuple):
+@dataclass(slots=True)
+class Answer:
     """
     Backend DNS Answers Return Type
     """
-    message: Message
-    source:  str
+    message:      Message
+    source:       str
+    source_label: Optional[str] = None
 
 class Backend(Protocol):
     """
@@ -86,7 +90,8 @@ class Backend(Protocol):
         raise NotImplementedError
 
 #** Imports **#
-from .cache import *
-from .memory import *
-from .pxe import *
-from .simple import *
+from .cache import Cache
+from .memory import MemoryBackend
+from .pxe import PxeTftpConfig, PxeDynConfig, PxeConfig, PXEBackend
+from .simple import SimpleAnswer, SimpleBackend
+from .single import SingleFlight
